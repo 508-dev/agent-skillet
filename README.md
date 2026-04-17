@@ -5,7 +5,13 @@ AI agent skills for developer workflows — git discipline, PR automation, and s
 ## Installation
 
 ```bash
-pip install open-skills
+uv pip install open-skills
+```
+
+Or install locally for development:
+
+```bash
+uv pip install -e .
 ```
 
 ## Quick Start
@@ -25,6 +31,12 @@ open-skills config
 
 # Re-sync IDE configs
 open-skills sync
+```
+
+Alternatively, run with `uv run`:
+
+```bash
+uv run open-skills install
 ```
 
 ## Features
