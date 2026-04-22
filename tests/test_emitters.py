@@ -19,16 +19,11 @@ description: {description}
     )
 
 
-def test_write_config_files_claude_cursor_native_skills(tmp_path: Path) -> None:
+def test_write_config_files_mirrors_all_enabled_targets(tmp_path: Path) -> None:
     skills_dir = tmp_path / ".skillet" / "skills"
     _write_skill(skills_dir, "alpha-skill", "Does alpha things")
 
-    cfg = {
-        "claude": True,
-        "cursor": True,
-        "gemini": True,
-        "opencode": False,
-    }
+    cfg = {"claude": True, "cursor": True, "opencode": True}
     written = write_config_files(skills_dir, tmp_path, cfg)
 
     for base in (".claude/skills/", ".cursor/skills/", ".agents/skills/"):
@@ -39,32 +34,29 @@ def test_write_config_files_claude_cursor_native_skills(tmp_path: Path) -> None:
     assert written[".agents/skills/"] == str(tmp_path / ".agents" / "skills")
 
 
-def test_prunes_outputs_when_ide_disabled(tmp_path: Path) -> None:
+def test_prunes_native_trees_when_targets_disabled(tmp_path: Path) -> None:
     skills_dir = tmp_path / ".skillet" / "skills"
     _write_skill(skills_dir, "x", "y")
 
-    (tmp_path / "AGENTS.md").write_text("user agents", encoding="utf-8")
-    (tmp_path / "CLAUDE.md").write_text("user claude", encoding="utf-8")
-    (tmp_path / "GEMINI.md").write_text("user gemini", encoding="utf-8")
+    (tmp_path / "USER_NOTES.md").write_text("keep me", encoding="utf-8")
 
     write_config_files(
         skills_dir,
         tmp_path,
-        {"claude": True, "cursor": True, "gemini": True, "opencode": True},
+        {"claude": True, "cursor": True, "opencode": True},
     )
     assert (tmp_path / ".claude" / "skills" / "x" / "SKILL.md").is_file()
     assert (tmp_path / ".cursor" / "skills" / "x" / "SKILL.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "x" / "SKILL.md").is_file()
+    assert (tmp_path / "USER_NOTES.md").read_text(encoding="utf-8") == "keep me"
 
     write_config_files(
         skills_dir,
         tmp_path,
-        {"claude": False, "cursor": False, "gemini": False, "opencode": False},
+        {"claude": False, "cursor": False, "opencode": False},
     )
 
-    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "user agents"
-    assert (tmp_path / "CLAUDE.md").read_text(encoding="utf-8") == "user claude"
-    assert (tmp_path / "GEMINI.md").read_text(encoding="utf-8") == "user gemini"
+    assert (tmp_path / "USER_NOTES.md").read_text(encoding="utf-8") == "keep me"
     assert not (tmp_path / ".claude" / "skills").exists()
     assert not (tmp_path / ".cursor" / "skills").exists()
     assert not (tmp_path / ".agents" / "skills").exists()
@@ -75,12 +67,7 @@ def test_prunes_emitted_skill_when_source_skill_removed(tmp_path: Path) -> None:
     _write_skill(skills_dir, "stay", "s")
     _write_skill(skills_dir, "gone", "g")
 
-    cfg = {
-        "claude": True,
-        "cursor": True,
-        "gemini": False,
-        "opencode": True,
-    }
+    cfg = {"claude": True, "cursor": True, "opencode": True}
     write_config_files(skills_dir, tmp_path, cfg)
 
     assert (tmp_path / ".claude" / "skills" / "gone" / "SKILL.md").is_file()
@@ -95,66 +82,53 @@ def test_prunes_emitted_skill_when_source_skill_removed(tmp_path: Path) -> None:
         assert (tmp_path / base / "stay" / "SKILL.md").is_file()
 
 
-def test_opencode_only_emits_agents_skills_dir_not_claude(tmp_path: Path) -> None:
+def test_only_opencode_mirrors_agents_skills(tmp_path: Path) -> None:
     skills_dir = tmp_path / ".skillet" / "skills"
     _write_skill(skills_dir, "solo", "solo skill")
 
     written = write_config_files(
         skills_dir,
         tmp_path,
-        {"claude": False, "cursor": False, "gemini": False, "opencode": True},
+        {"claude": False, "cursor": False, "opencode": True},
     )
 
     assert (tmp_path / ".agents" / "skills" / "solo" / "SKILL.md").is_file()
     assert written[".agents/skills/"] == str(tmp_path / ".agents" / "skills")
+    assert not (tmp_path / ".claude" / "skills").exists()
+    assert not (tmp_path / ".cursor" / "skills").exists()
 
 
-def test_gemini_only_emits_agents_skills_dir(tmp_path: Path) -> None:
+def test_no_targets_enabled_returns_empty_written_and_prunes_mirrors(
+    tmp_path: Path,
+) -> None:
     skills_dir = tmp_path / ".skillet" / "skills"
     _write_skill(skills_dir, "g", "g skill")
 
     written = write_config_files(
         skills_dir,
         tmp_path,
-        {"claude": False, "cursor": False, "gemini": True, "opencode": False},
+        {"claude": False, "cursor": False, "opencode": False},
     )
 
-    assert (tmp_path / ".agents" / "skills" / "g" / "SKILL.md").is_file()
-    assert written[".agents/skills/"] == str(tmp_path / ".agents" / "skills")
+    assert written == {}
+    assert not (tmp_path / ".agents" / "skills").exists()
     assert not (tmp_path / ".claude" / "skills").exists()
     assert not (tmp_path / ".cursor" / "skills").exists()
 
 
-def test_disabling_gemini_keeps_agents_skills_when_opencode_enabled(tmp_path: Path) -> None:
+def test_write_config_files_removes_legacy_skillet_paths(tmp_path: Path) -> None:
+    """``write_config_files`` still deletes paths listed in emitters legacy cleanup."""
     skills_dir = tmp_path / ".skillet" / "skills"
-    _write_skill(skills_dir, "x", "y")
+    _write_skill(skills_dir, "s", "d")
+    (tmp_path / "CLAUDE.md").write_text("old", encoding="utf-8")
+    (tmp_path / "GEMINI.md").write_text("old", encoding="utf-8")
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "skillet.mdc").write_text("old", encoding="utf-8")
 
-    write_config_files(
-        skills_dir,
-        tmp_path,
-        {"claude": False, "cursor": False, "gemini": True, "opencode": True},
-    )
-    assert (tmp_path / ".agents" / "skills" / "x" / "SKILL.md").is_file()
+    write_config_files(skills_dir, tmp_path, {"claude": True, "cursor": False, "opencode": False})
 
-    write_config_files(
-        skills_dir,
-        tmp_path,
-        {"claude": False, "cursor": False, "gemini": False, "opencode": True},
-    )
-    assert (tmp_path / ".agents" / "skills" / "x" / "SKILL.md").is_file()
-
-
-def test_skills_xml_escapes_markup(tmp_path: Path) -> None:
-    from skillet.skills.parser import generate_skills_xml
-
-    skills = [
-        {
-            "name": "a",
-            "description": 'Use <script> & "quotes"',
-            "skill_file": str(tmp_path / "a" / "SKILL.md"),
-        }
-    ]
-    xml = generate_skills_xml(skills, tmp_path, rel_location=lambda s: "p<th>ath")
-    assert "<script>" not in xml
-    assert "&lt;script&gt;" in xml
-    assert "&amp;" in xml
+    assert not (tmp_path / "CLAUDE.md").exists()
+    assert not (tmp_path / "GEMINI.md").exists()
+    assert not (rules / "skillet.mdc").exists()
+    assert (tmp_path / ".claude" / "skills" / "s" / "SKILL.md").is_file()

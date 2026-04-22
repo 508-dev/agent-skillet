@@ -1,5 +1,5 @@
-import pytest
 from pathlib import Path
+
 from skillet.skills.parser import parse_frontmatter, get_skills_from_directory
 
 
@@ -32,3 +32,19 @@ def test_get_skills_from_directory():
     assert len(skills) >= 3
     names = [s['name'] for s in skills]
     assert 'git-os' in names
+
+
+def test_generate_skills_xml_escapes_markup(tmp_path: Path) -> None:
+    from skillet.skills.parser import generate_skills_xml
+
+    skills = [
+        {
+            "name": "a",
+            "description": 'Use <script> & "quotes"',
+            "skill_file": str(tmp_path / "a" / "SKILL.md"),
+        }
+    ]
+    xml = generate_skills_xml(skills, tmp_path, rel_location=lambda s: "p<th>ath")
+    assert "<script>" not in xml
+    assert "&lt;script&gt;" in xml
+    assert "&amp;" in xml

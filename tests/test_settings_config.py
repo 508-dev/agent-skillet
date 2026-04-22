@@ -16,13 +16,14 @@ def test_format_ide_target_mapping_summary_orders_and_groups_shared_agents_path(
     text = format_ide_target_mapping_summary(["gemini", "cursor", "claude"])
     assert ".cursor/skills/" in text
     assert ".claude/skills/" in text
-    assert ".agents/skills/" in text
-    assert "OpenCode" not in text  # gemini-only for .agents line
+    assert ".agents/skills/" not in text
+    assert "OpenCode" not in text
     assert text.find(".cursor/skills") > text.find(".claude/skills")
 
     both = format_ide_target_mapping_summary(["gemini", "opencode"])
-    assert both.count(".agents/skills/") == 1
-    assert "Gemini CLI & Antigravity" in both
+    bullet_lines = [ln for ln in both.splitlines() if ln.strip().startswith("•")]
+    assert len(bullet_lines) == 1
+    assert ".agents/skills/" in bullet_lines[0]
     assert "OpenCode" in both
 
 
