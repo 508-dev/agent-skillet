@@ -1,0 +1,57 @@
+# Authoring skills for Skillet
+
+Skills are directories that contain a `SKILL.md` file. The file starts with **YAML frontmatter** (between `---` lines) followed by Markdown instructions for coding agents.
+
+## Required frontmatter
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Stable id (lowercase, hyphens). Defaults to the parent directory name if omitted. |
+| `description` | One-line summary; used in `skillet list` and search. |
+
+## Example
+
+```markdown
+---
+name: my-skill
+description: When editing payment code, follow these invariants.
+---
+
+# My skill
+
+## When to use
+- Any change under `src/payments/`
+
+## Steps
+1. Read existing tests under `tests/payments/`.
+2. …
+```
+
+## Where skills live
+
+- **Bundled** defaults ship inside the `skillet` package under `bundled_skills/` (copied to `.skillet/skills/` on `skillet install`).
+- **Repo-owned** skills live anywhere in your tree (e.g. `./team-skills/checkout-flow/`). Register them with:
+
+  ```bash
+  skillet add ./team-skills/checkout-flow
+  ```
+
+- **Upstream** skills use GitHub specs compatible with [skills.sh](https://skills.sh/), e.g. `anthropics/skills/skill-creator` or `owner/repo/path/to/skill-dir@branch`.
+
+## Where agents load skills (native paths)
+
+On `skillet install`, `skillet sync`, and `skillet add`, Skillet **mirrors** each materialized skill from `.skillet/skills/<name>/` into the enabled targets’ native trees (one `SKILL.md` per skill folder):
+
+| Target | Project path |
+|--------|----------------|
+| Claude Code (`claude` in `ide_support`) | `.claude/skills/<name>/SKILL.md` |
+| Cursor (`cursor`) | `.cursor/skills/<name>/SKILL.md` |
+| OpenCode / universal agents (`opencode`) | `.agents/skills/<name>/SKILL.md` |
+
+The `gemini` key in `ide_support` is reserved for future use; in the current version Skillet does **not** write files for it. Use `opencode` if you need `.agents/skills/`.
+
+Skillet does **not** generate `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or a Skillet-specific Cursor rules file. When you run `install` / `sync` / `add`, Skillet deletes a short list of **deprecated files it used to emit** (such as `CLAUDE.md`, `GEMINI.md`, and `.cursor/rules/skillet.mdc`, plus a few other legacy paths), if they are still on disk. Remove or keep `AGENTS.md` yourself if your project uses that convention outside Skillet.
+
+## Agent Skills specification
+
+For broader compatibility across tools, see [agentskills.io](https://agentskills.io).
