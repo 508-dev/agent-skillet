@@ -1,0 +1,143 @@
+"""Add skills from local or GitHub specs (shared by CLI add flows)."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from skillet.skills.parser import parse_skill_file
+from skillet.sources import looks_like_local_source_spec, resolving, upsert_source
+from skillet.sources.github import GitHubSourceSpec, parse_github_source_spec, serialize_github_source_spec
+from skillet.sources.store import load_sources
+
+
+def _parse_local_add_spec(spec: str, project_dir: Path) -> tuple[str, dict] | None:
+    raw = Path(spec).expanduser()
+    candidates: list[Path] = []
+    if raw.is_absolute():
+        candidates.append(raw.resolve())
+    else:
+        candidates.append((project_dir / raw).resolve())
+        candidates.append((Path.cwd() / raw).resolve())
+    seen: set[Path] = set()
+    for src in candidates:
+        if src in seen:
+            continue
+        seen.add(src)
+        if src.is_dir() and (src / "SKILL.md").exists():
+            name = src.name
+            try:
+                rel = src.relative_to(project_dir).as_posix()
+            except ValueError:
+                rel = str(src)
+            return name, {"kind": "local", "path": rel}
+    return None
+
+
+def add_specs(
+    project_dir: Path,
+    specs: list[str],
+    *,
+    skip_existing: bool = True,
+    github_token: str | None = None,
+) -> tuple[int, list[str]]:
+    """
+    For each spec, append entries to ``sources.json`` (same semantics as ``skillet add``).
+
+    Does **not** run ``apply_all_sources`` or native skill mirrors — call
+    :func:`apply_sources_and_emit` afterward.
+    """
+    project_dir = project_dir.resolve()
+    project_skills = project_dir / ".skillet" / "skills"
+    project_skills.mkdir(parents=True, exist_ok=True)
+
+    existing = load_sources(project_dir) if skip_existing else {}
+    errors: list[str] = []
+    tracked = 0
+
+    for spec in specs:
+        s = spec.strip()
+        if not s:
+            continue
+
+        parsed = _parse_local_add_spec(s, project_dir)
+        if parsed is not None:
+            name, source_spec = parsed
+            if skip_existing and name in existing:
+                continue
+            upsert_source(project_dir, name, source_spec)
+            tracked += 1
+            existing[name] = source_spec
+            continue
+
+        if looks_like_local_source_spec(s):
+            errors.append(f"{s}: local skill directory not found")
+            continue
+
+        try:
+            base = parse_github_source_spec(s)
+        except ValueError as e:
+            errors.append(f"{s}: {e}")
+            continue
+
+        try:
+            with resolving(s, cwd=project_dir, token=github_token) as resolved:
+                dirs = resolved.skill_directories
+        except Exception as e:
+            errors.append(f"{s}: {e!s}")
+            continue
+
+        if not dirs:
+            errors.append(f"{s}: no skills found")
+            continue
+
+        resolved_paths = [d.resolve() for d in dirs]
+        try:
+            repo_root = Path(os.path.commonpath([str(p) for p in resolved_paths]))
+        except ValueError:
+            repo_root = dirs[0].parent
+        if len(dirs) == 1 and repo_root.resolve() == dirs[0].resolve():
+            repo_root = dirs[0].parent
+
+        for d in dirs:
+            meta = parse_skill_file(d / "SKILL.md") or {}
+            name = str(meta.get("name") or d.name).strip()
+            if not name:
+                continue
+            if skip_existing and name in existing:
+                continue
+            rel = d.resolve().relative_to(repo_root.resolve()).as_posix()
+            sub = rel if rel not in ("", ".") else None
+            per = serialize_github_source_spec(
+                GitHubSourceSpec(
+                    owner=base.owner,
+                    repo=base.repo,
+                    ref=base.ref,
+                    skill_subpath=sub,
+                )
+            )
+            upsert_source(project_dir, name, {"kind": "github", "spec": per})
+            tracked += 1
+            existing[name] = {"kind": "github", "spec": per}
+
+    return tracked, errors
+
+
+def apply_sources_and_emit(
+    project_dir: Path,
+    ide_config: dict | None = None,
+    *,
+    github_token: str | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    """Run ``apply_all_sources`` and refresh native agent skill directory mirrors."""
+    from skillet.config.project import ide_emit_flags_for_project
+    from skillet.installer.emitters import write_config_files
+    from skillet.sources import apply_all_sources
+
+    project_dir = project_dir.resolve()
+    project_skills = project_dir / ".skillet" / "skills"
+    project_skills.mkdir(parents=True, exist_ok=True)
+    errors = apply_all_sources(project_dir, project_skills, github_token=github_token)
+    flags = ide_config if ide_config is not None else ide_emit_flags_for_project(project_dir)
+    written = write_config_files(project_skills, project_dir, flags)
+    return errors, written

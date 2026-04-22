@@ -16,40 +16,32 @@ from skillet.config.settings import load_config
 from skillet.config.wizard import run_config_wizard
 from skillet.installer.copier import copy_all_skills, remove_skill
 from skillet.installer.emitters import write_config_files
-from skillet.skills.parser import get_skills_from_directory, parse_skill_file
+from skillet.skills.parser import get_skills_from_directory
 from skillet.skills.search import search_skills
-from skillet.sources import (
-    apply_all_sources,
-    load_sources,
-    looks_like_local_source_spec,
-    remove_source_entry,
-    resolving,
-    sources_json_path,
-    upsert_source,
-)
-from skillet.sources.github import (
-    GitHubSourceSpec,
-    parse_github_source_spec,
-    serialize_github_source_spec,
-)
+from skillet.operations.add_specs import add_specs, apply_sources_and_emit
+from skillet.sources import apply_all_sources, load_sources, remove_source_entry, sources_json_path
 
 
 def get_bundled_skills_dir() -> Path:
-    """Get the path to bundled skills (works both in dev and installed)."""
-    package_root = Path(__file__).parent.parent
-    bundled = package_root / "skills"
-    if bundled.exists():
-        return bundled
-
-    src_skills = package_root.parent / "skills"
-    if src_skills.exists():
-        return src_skills
-
-    raise RuntimeError("Cannot find bundled skills")
+    """Return ``bundled_skills/`` inside the installed ``skillet`` package (wheel/sdist safe)."""
+    pkg_dir = Path(__file__).resolve().parent
+    bundled = pkg_dir / "bundled_skills"
+    if bundled.is_dir():
+        for entry in bundled.iterdir():
+            if entry.is_dir() and (entry / "SKILL.md").is_file():
+                return bundled
+    raise RuntimeError("Cannot find bundled skills (package data missing?)")
 
 
 def get_project_skills_dir(project_dir: Path) -> Path:
     return project_dir / ".skillet" / "skills"
+
+
+def _emit_native_mirrors(project_dir: Path) -> dict[str, str]:
+    """Mirror ``.skillet/skills`` into enabled native agent skill directories."""
+    ide_config = ide_emit_flags_for_project(project_dir)
+    project_skills = get_project_skills_dir(project_dir)
+    return write_config_files(project_skills, project_dir, ide_config)
 
 
 def _github_token() -> str | None:
@@ -57,30 +49,6 @@ def _github_token() -> str | None:
     if t:
         return t
     return (load_config().get("github_token") or "").strip() or None
-
-
-def _parse_local_add_spec(spec: str, project_dir: Path) -> tuple[str, dict] | None:
-    """Resolve ``spec`` to a local skill directory; return (skill_name, source_spec)."""
-    raw = Path(spec).expanduser()
-    candidates: list[Path] = []
-    if raw.is_absolute():
-        candidates.append(raw.resolve())
-    else:
-        candidates.append((project_dir / raw).resolve())
-        candidates.append((Path.cwd() / raw).resolve())
-    seen: set[Path] = set()
-    for src in candidates:
-        if src in seen:
-            continue
-        seen.add(src)
-        if src.is_dir() and (src / "SKILL.md").exists():
-            name = src.name
-            try:
-                rel = src.relative_to(project_dir).as_posix()
-            except ValueError:
-                rel = str(src)
-            return name, {"kind": "local", "path": rel}
-    return None
 
 
 @click.group(invoke_without_command=True)
@@ -97,10 +65,10 @@ def main(ctx: click.Context) -> None:
 @click.option(
     "--skip-config",
     is_flag=True,
-    help="Skip IDE target prompt and IDE config generation",
+    help="Skip IDE target prompt and native skill directory mirroring",
 )
 def install(directory: str, skip_config: bool) -> None:
-    """Set up ``.skillet/skills/``, sync sources, prompt for IDE targets once, emit IDE files."""
+    """Set up ``.skillet/skills/``, sync sources, prompt for IDE targets once, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
     bundled_skills = get_bundled_skills_dir()
     project_skills = get_project_skills_dir(project_dir)
@@ -126,10 +94,9 @@ def install(directory: str, skip_config: bool) -> None:
     save_project_config(project_dir, proj_cfg)
 
     if not skip_config:
-        ide_config = ide_emit_flags_for_project(project_dir)
-        written = write_config_files(project_skills, project_dir, ide_config)
-        for name, path in written.items():
-            click.echo(f"  ✓ {name} generated")
+        written = _emit_native_mirrors(project_dir)
+        for name, _path in written.items():
+            click.echo(f"  ✓ {name} mirrored")
 
     click.echo("\n✓ Installation complete!")
 
@@ -139,82 +106,45 @@ def install(directory: str, skip_config: bool) -> None:
 @click.argument("directory", default=".")
 def add(spec: str, directory: str) -> None:
     """Add skills from a local directory or GitHub (``owner/repo[/path][@ref]``)."""
+    from skillet.sources import looks_like_local_source_spec
+
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
     project_skills.mkdir(parents=True, exist_ok=True)
     token = _github_token()
 
-    parsed = _parse_local_add_spec(spec, project_dir)
-    if parsed is not None:
-        name, source_spec = parsed
-        upsert_source(project_dir, name, source_spec)
-        source_errors = apply_all_sources(
-            project_dir, project_skills, github_token=token
-        )
-        for msg in source_errors:
-            click.echo(f"  ! {msg}", err=True)
-        click.echo(f"✓ Tracked skill '{name}' in .skillet/sources.json")
-    elif looks_like_local_source_spec(spec):
-        click.echo(
-            "Could not find a local skill directory with SKILL.md. "
-            "Pass a path relative to the project or an absolute path."
-        )
-        return
-    else:
-        try:
-            base = parse_github_source_spec(spec.strip())
-        except ValueError as e:
-            click.echo(str(e))
-            return
-        try:
-            with resolving(spec.strip(), cwd=project_dir, token=token) as resolved:
-                dirs = resolved.skill_directories
-        except Exception as e:
-            click.echo(f"Failed to fetch source: {e}")
-            return
-        if not dirs:
-            click.echo("No skills found in that source.")
-            return
-        resolved_paths = [d.resolve() for d in dirs]
-        try:
-            repo_root = Path(os.path.commonpath([str(p) for p in resolved_paths]))
-        except ValueError:
-            repo_root = dirs[0].parent
-        if len(dirs) == 1 and repo_root.resolve() == dirs[0].resolve():
-            repo_root = dirs[0].parent
+    tracked, pre_errors = add_specs(
+        project_dir,
+        [spec],
+        skip_existing=False,
+        github_token=token,
+    )
+    for msg in pre_errors:
+        click.echo(f"  ! {msg}", err=True)
 
-        count = 0
-        for d in dirs:
-            meta = parse_skill_file(d / "SKILL.md") or {}
-            name = str(meta.get("name") or d.name).strip()
-            if not name:
-                continue
-            rel = d.resolve().relative_to(repo_root.resolve()).as_posix()
-            sub = rel if rel not in ("", ".") else None
-            per = serialize_github_source_spec(
-                GitHubSourceSpec(
-                    owner=base.owner,
-                    repo=base.repo,
-                    ref=base.ref,
-                    skill_subpath=sub,
-                )
+    if tracked == 0:
+        if looks_like_local_source_spec(spec) and not pre_errors:
+            click.echo(
+                "Could not find a local skill directory with SKILL.md. "
+                "Pass a path relative to the project or an absolute path."
             )
-            upsert_source(project_dir, name, {"kind": "github", "spec": per})
-            count += 1
-        if count == 0:
-            click.echo("No installable skills found (missing names).")
-            return
-        click.echo(f"✓ Tracked {count} skill(s) in .skillet/sources.json")
-        source_errors = apply_all_sources(
-            project_dir, project_skills, github_token=token
-        )
-        for msg in source_errors:
-            click.echo(f"  ! {msg}", err=True)
+        elif not pre_errors:
+            click.echo("No installable skills found (missing names or empty source).")
+        return
 
-    ide_config = ide_emit_flags_for_project(project_dir)
-    written = write_config_files(project_skills, project_dir, ide_config)
+    if tracked == 1:
+        click.echo("✓ Tracked 1 skill in .skillet/sources.json")
+    else:
+        click.echo(f"✓ Tracked {tracked} skill(s) in .skillet/sources.json")
+
+    apply_errors, written = apply_sources_and_emit(
+        project_dir, github_token=token
+    )
+    for msg in apply_errors:
+        click.echo(f"  ! {msg}", err=True)
+
     for fname, _ in written.items():
-        click.echo(f"  ✓ {fname} updated")
+        click.echo(f"  ✓ {fname} mirrored")
 
 
 @main.command("remove")
@@ -238,16 +168,15 @@ def remove(name: str, directory: str) -> None:
     click.echo(f"✓ Removed skill '{name}'")
 
     if project_skills.exists():
-        ide_config = ide_emit_flags_for_project(project_dir)
-        written = write_config_files(project_skills, project_dir, ide_config)
+        written = _emit_native_mirrors(project_dir)
         for fname, _ in written.items():
-            click.echo(f"  ✓ {fname} updated")
+            click.echo(f"  ✓ {fname} mirrored")
 
 
 @main.command("sync")
 @click.argument("directory", default=".")
 def sync(directory: str) -> None:
-    """Re-fetch sources from ``.skillet/sources.json`` and re-sync IDE configs."""
+    """Re-fetch sources from ``.skillet/sources.json`` and refresh native skill directory mirrors."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
     has_sources = sources_json_path(project_dir).exists() and load_sources(project_dir)
@@ -264,11 +193,10 @@ def sync(directory: str) -> None:
     for msg in source_errors:
         click.echo(f"  ! {msg}", err=True)
 
-    ide_config = ide_emit_flags_for_project(project_dir)
-    written = write_config_files(project_skills, project_dir, ide_config)
+    written = _emit_native_mirrors(project_dir)
 
-    click.echo("\nRe-generated config files:")
-    for name, path in written.items():
+    click.echo("\nUpdated native skill directories:")
+    for name, _path in written.items():
         click.echo(f"  ✓ {name}")
     click.echo("\n✓ Sync complete!")
 

@@ -68,6 +68,16 @@ def parse_github_source_spec(spec: str) -> GitHubSourceSpec:
     )
 
 
+def serialize_github_source_spec(source: GitHubSourceSpec) -> str:
+    """Serialize a parsed spec back to a ``skills.sh``-style string for ``sources.json``."""
+    s = f"{source.owner}/{source.repo}"
+    if source.skill_subpath:
+        s += f"/{source.skill_subpath}"
+    if source.ref:
+        s += f"@{source.ref}"
+    return s
+
+
 def _tarball_url_candidates(owner: str, repo: str, ref: str) -> list[str]:
     o = quote(owner, safe="")
     r = quote(repo, safe="")
@@ -135,17 +145,42 @@ def _select_skill_directories(
             msg = f"No SKILL.md found under extracted repo root {repo_root}"
             raise ValueError(msg)
         return dirs
-    target = (repo_root / skill_subpath).resolve()
-    try:
-        target.relative_to(repo_root.resolve())
-    except ValueError as e:
-        msg = f"Skill path {skill_subpath!r} escapes repository root"
-        raise ValueError(msg) from e
-    skill_file = target / "SKILL.md"
-    if not skill_file.is_file():
-        msg = f"No SKILL.md at expected path {skill_file}"
-        raise ValueError(msg)
-    return [target]
+    root = repo_root.resolve()
+    direct = (repo_root / skill_subpath).resolve()
+    candidates: list[Path] = [direct]
+    if "/" not in skill_subpath:
+        # skills.sh repos often store named skills under these roots.
+        candidates.extend(
+            [
+                (repo_root / "skills" / skill_subpath).resolve(),
+                (repo_root / ".agents" / "skills" / skill_subpath).resolve(),
+                (repo_root / ".claude" / "skills" / skill_subpath).resolve(),
+            ]
+        )
+
+    for target in candidates:
+        try:
+            target.relative_to(root)
+        except ValueError:
+            continue
+        if (target / "SKILL.md").is_file():
+            return [target]
+
+    # Last fallback: treat a single-segment path as a skill name selector.
+    if "/" not in skill_subpath:
+        want = skill_subpath.strip()
+        matches: list[Path] = []
+        for d in discover_skill_directories(repo_root):
+            if d.name == want:
+                matches.append(d)
+        if len(matches) == 1:
+            return matches
+        if len(matches) > 1:
+            msg = f"Ambiguous skill name {skill_subpath!r}; matched multiple SKILL.md dirs"
+            raise ValueError(msg)
+
+    msg = f"No SKILL.md at expected path(s) for {skill_subpath!r}"
+    raise ValueError(msg)
 
 
 def _extract_strip_topdir(archive: bytes, dest: Path) -> Path:

@@ -11,6 +11,7 @@ from skillet.sources.github import (
     discover_skill_directories,
     fetch_github_skill_directories,
     parse_github_source_spec,
+    serialize_github_source_spec,
 )
 from skillet.sources.local import (
     looks_like_local_source_spec,
@@ -21,6 +22,13 @@ from skillet.sources import (
     parse_source_spec,
     resolve_skill_directories,
 )
+
+
+def test_serialize_github_source_spec_roundtrip():
+    s = parse_github_source_spec("anthropics/skills/skill-creator@v1.0.0")
+    assert serialize_github_source_spec(s) == "anthropics/skills/skill-creator@v1.0.0"
+    s2 = parse_github_source_spec("org/repo")
+    assert serialize_github_source_spec(s2) == "org/repo"
 
 
 def test_parse_github_variants():
