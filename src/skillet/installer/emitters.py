@@ -1,24 +1,60 @@
-"""IDE-facing emitters: Claude Code, Cursor rules, AGENTS.md, CLAUDE.md, GEMINI.md."""
+"""IDE-facing emitters: native skill directories per agent (Cursor, OpenCode, Claude)."""
 
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from skillet.skills.parser import generate_skills_xml, get_skills_from_directory
-
-
-def get_templates_dir() -> Path:
-    return Path(__file__).parent.parent / "templates"
-
-
-def _env() -> Environment:
-    return Environment(
-        loader=FileSystemLoader(str(get_templates_dir())),
-        autoescape=select_autoescape(["html", "xml"]),
+def _stale_index_paths(project_dir: Path) -> tuple[Path, ...]:
+    return (
+        project_dir / "AGENTS.md",
+        project_dir / "CLAUDE.md",
+        project_dir / "GEMINI.md",
+        project_dir / ".cursor" / "rules" / "skillet.mdc",
     )
+
+
+def _prune_disabled_emitters(project_dir: Path, config: dict) -> None:
+    """Remove skill trees and index artifacts for targets that are off."""
+    if not config.get("claude"):
+        claude_md = project_dir / "CLAUDE.md"
+        if claude_md.is_file():
+            claude_md.unlink()
+        claude_skills = project_dir / ".claude" / "skills"
+        if claude_skills.is_dir():
+            shutil.rmtree(claude_skills)
+    if not config.get("cursor"):
+        mdc = project_dir / ".cursor" / "rules" / "skillet.mdc"
+        if mdc.is_file():
+            mdc.unlink()
+        cursor_skills = project_dir / ".cursor" / "skills"
+        if cursor_skills.is_dir():
+            shutil.rmtree(cursor_skills)
+    if not config.get("opencode"):
+        agents_skills = project_dir / ".agents" / "skills"
+        if agents_skills.is_dir():
+            shutil.rmtree(agents_skills)
+    if not config.get("gemini"):
+        gemini = project_dir / "GEMINI.md"
+        if gemini.is_file():
+            gemini.unlink()
+    if not (
+        config.get("claude")
+        or config.get("cursor")
+        or config.get("gemini")
+        or config.get("opencode")
+    ):
+        agents = project_dir / "AGENTS.md"
+        if agents.is_file():
+            agents.unlink()
+
+
+def _remove_stale_index_and_rules(project_dir: Path) -> None:
+    """Skillet no longer writes rules/index files; clear any past outputs."""
+    for p in _stale_index_paths(project_dir):
+        if p.is_file():
+            p.unlink()
 
 
 def _remove_legacy_ide_files(project_dir: Path) -> None:
@@ -37,9 +73,11 @@ def _remove_legacy_ide_files(project_dir: Path) -> None:
             legacy_rules.unlink()
 
 
-def emit_claude_code_skills(skills_dir: Path, project_dir: Path) -> None:
-    """Mirror each skill under ``.claude/skills/<name>/`` for Claude Code discovery."""
-    dest_root = project_dir / ".claude" / "skills"
+def emit_native_skills(skills_dir: Path, dest_root: Path) -> None:
+    """Mirror each skill at ``<dest_root>/<name>/SKILL.md`` and prune removed skills.
+
+    ``dest_root`` is one of: ``.claude/skills``, ``.cursor/skills``, ``.agents/skills``.
+    """
     dest_root.mkdir(parents=True, exist_ok=True)
 
     valid_names: set[str] = set()
@@ -59,71 +97,31 @@ def emit_claude_code_skills(skills_dir: Path, project_dir: Path) -> None:
         shutil.copy2(src, target_dir / "SKILL.md")
 
 
-def generate_claude_md(skills: list[dict], project_dir: Path) -> str:
-    skills_xml = generate_skills_xml(
-        skills,
-        project_dir,
-        rel_location=lambda s: f".claude/skills/{s['name']}/SKILL.md",
-    )
-    return _env().get_template("claude.md.j2").render(skills_xml=skills_xml)
-
-
-def generate_agents_md(skills: list[dict], project_dir: Path) -> str:
-    skills_xml = generate_skills_xml(
-        skills,
-        project_dir,
-        rel_location=lambda s: f".skillet/skills/{s['name']}/SKILL.md",
-    )
-    return _env().get_template("agents.md.j2").render(skills_xml=skills_xml)
-
-
-def generate_gemini_md(skills: list[dict], project_dir: Path) -> str:
-    skills_xml = generate_skills_xml(
-        skills,
-        project_dir,
-        rel_location=lambda s: f".skillet/skills/{s['name']}/SKILL.md",
-    )
-    return _env().get_template("gemini.md.j2").render(skills_xml=skills_xml)
-
-
-def generate_skillet_mdc(skills: list[dict]) -> str:
-    entries = []
-    for s in sorted(skills, key=lambda x: x["name"].lower()):
-        rel = f".skillet/skills/{s['name']}/SKILL.md"
-        entries.append(
-            {"name": s["name"], "description": s["description"], "rel_path": rel}
-        )
-    return _env().get_template("skillet.mdc.j2").render(skills=entries)
+def emit_claude_code_skills(skills_dir: Path, project_dir: Path) -> None:
+    """Mirror each skill under ``.claude/skills/<name>/`` for Claude Code discovery."""
+    emit_native_skills(skills_dir, project_dir / ".claude" / "skills")
 
 
 def write_config_files(skills_dir: Path, project_dir: Path, config: dict) -> dict:
-    """Write IDE-facing config files. Returns map of logical name -> path written."""
+    """Write native skill directory trees for enabled IDE targets. Returns paths written."""
     _remove_legacy_ide_files(project_dir)
-    skills = get_skills_from_directory(skills_dir)
+    _remove_stale_index_and_rules(project_dir)
+    _prune_disabled_emitters(project_dir, config)
     result: dict[str, str] = {}
 
     if config.get("claude"):
-        emit_claude_code_skills(skills_dir, project_dir)
-        path = project_dir / "CLAUDE.md"
-        path.write_text(generate_claude_md(skills, project_dir), encoding="utf-8")
-        result["CLAUDE.md"] = str(path)
-        result[".claude/skills/"] = str(project_dir / ".claude" / "skills")
+        root = project_dir / ".claude" / "skills"
+        emit_native_skills(skills_dir, root)
+        result[".claude/skills/"] = str(root)
 
     if config.get("cursor"):
-        rules_dir = project_dir / ".cursor" / "rules"
-        rules_dir.mkdir(parents=True, exist_ok=True)
-        path = rules_dir / "skillet.mdc"
-        path.write_text(generate_skillet_mdc(skills), encoding="utf-8")
-        result[".cursor/rules/skillet.mdc"] = str(path)
+        root = project_dir / ".cursor" / "skills"
+        emit_native_skills(skills_dir, root)
+        result[".cursor/skills/"] = str(root)
 
     if config.get("opencode"):
-        path = project_dir / "AGENTS.md"
-        path.write_text(generate_agents_md(skills, project_dir), encoding="utf-8")
-        result["AGENTS.md"] = str(path)
-
-    if config.get("gemini"):
-        path = project_dir / "GEMINI.md"
-        path.write_text(generate_gemini_md(skills, project_dir), encoding="utf-8")
-        result["GEMINI.md"] = str(path)
+        root = project_dir / ".agents" / "skills"
+        emit_native_skills(skills_dir, root)
+        result[".agents/skills/"] = str(root)
 
     return result
