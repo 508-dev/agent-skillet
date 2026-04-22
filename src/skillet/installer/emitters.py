@@ -5,6 +5,25 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+_LEGACY_TO_REMOVE: tuple[Path, ...] = (
+    # Removed in native-only Skillet: migrate away from these paths.
+    Path(".cursor/rules/skillet.mdc"),
+    Path(".github/copilot-instructions.md"),
+)
+
+
+def _remove_legacy_rule_and_index_files(project_dir: Path) -> None:
+    """Delete rule/index files from older Skillet versions if present."""
+    for rel in _LEGACY_TO_REMOVE:
+        p = project_dir / rel
+        if p.is_file():
+            p.unlink()
+        # Remove empty parent dirs for rules only (e.g. .github if empty)
+        if rel.as_posix() == ".github/copilot-instructions.md":
+            gh = project_dir / ".github"
+            if gh.is_dir() and not any(gh.iterdir()):
+                gh.rmdir()
+
 
 def _prune_disabled_emitters(project_dir: Path, config: dict) -> None:
     """Remove mirrored skill trees for IDE targets that are off."""
@@ -17,10 +36,9 @@ def _prune_disabled_emitters(project_dir: Path, config: dict) -> None:
         if cursor_skills.is_dir():
             shutil.rmtree(cursor_skills)
     if not config.get("opencode"):
-        if not config.get("gemini"):
-            agents_skills = project_dir / ".agents" / "skills"
-            if agents_skills.is_dir():
-                shutil.rmtree(agents_skills)
+        agents_skills = project_dir / ".agents" / "skills"
+        if agents_skills.is_dir():
+            shutil.rmtree(agents_skills)
 
 
 def emit_native_skills(skills_dir: Path, dest_root: Path) -> None:
@@ -54,6 +72,7 @@ def emit_claude_code_skills(skills_dir: Path, project_dir: Path) -> None:
 
 def write_config_files(skills_dir: Path, project_dir: Path, config: dict) -> dict:
     """Write native skill directory trees for enabled IDE targets. Returns paths written."""
+    _remove_legacy_rule_and_index_files(project_dir)
     _prune_disabled_emitters(project_dir, config)
     result: dict[str, str] = {}
 
@@ -67,7 +86,7 @@ def write_config_files(skills_dir: Path, project_dir: Path, config: dict) -> dic
         emit_native_skills(skills_dir, root)
         result[".cursor/skills/"] = str(root)
 
-    if config.get("opencode") or config.get("gemini"):
+    if config.get("opencode"):
         root = project_dir / ".agents" / "skills"
         emit_native_skills(skills_dir, root)
         result[".agents/skills/"] = str(root)
