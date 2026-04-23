@@ -31,9 +31,32 @@ def test_install_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -
     assert data.get("version") == "1"
     assert isinstance(data.get("ide_support"), list)
     assert data["ide_support"]
+    assert data.get("skill_sources") == ["@bundled"]
 
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
+
+
+def test_install_uses_configured_skill_sources(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    custom = tmp_path / "vendor" / "extra-skill"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text(
+        "---\nname: extra-skill\ndescription: extra\n---\n\n# Extra\n",
+        encoding="utf-8",
+    )
+    save_project_config(
+        tmp_path,
+        {"version": "1", "ide_support": ["cursor"], "skill_sources": ["vendor/extra-skill"]},
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["install", "--skip-config", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+
+    skills_dir = tmp_path / ".skillet" / "skills"
+    assert (skills_dir / "extra-skill" / "SKILL.md").is_file()
+    assert not (skills_dir / "git-os" / "SKILL.md").exists()
 
 
 def test_install_removed_flags_raise_usage_error() -> None:

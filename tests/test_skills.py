@@ -26,8 +26,8 @@ def test_parse_frontmatter_empty():
 
 
 def test_get_skills_from_directory():
-    from skillet.cli import get_bundled_skills_dir
-    bundled = get_bundled_skills_dir()
+    from skillet.cli import get_skills_dir
+    bundled = get_skills_dir()
     skills = get_skills_from_directory(bundled)
     assert len(skills) >= 3
     names = [s['name'] for s in skills]

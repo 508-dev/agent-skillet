@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 
 import click
@@ -21,16 +22,73 @@ from skillet.skills.search import search_skills
 from skillet.operations.add_specs import add_specs, apply_sources_and_emit
 from skillet.sources import apply_all_sources, load_sources, remove_source_entry, sources_json_path
 
+DEFAULT_SKILL_SOURCES: tuple[str, ...] = ("@bundled",)
 
-def get_bundled_skills_dir() -> Path:
-    """Return ``bundled_skills/`` inside the installed ``skillet`` package (wheel/sdist safe)."""
+
+def get_skills_dir() -> Path:
+    """Return bundled skill source directory at repository root ``skills/``."""
     pkg_dir = Path(__file__).resolve().parent
-    bundled = pkg_dir / "bundled_skills"
+    repo_root = pkg_dir.parent.parent
+    bundled = repo_root / "skills"
     if bundled.is_dir():
         for entry in bundled.iterdir():
             if entry.is_dir() and (entry / "SKILL.md").is_file():
                 return bundled
-    raise RuntimeError("Cannot find bundled skills (package data missing?)")
+    raise RuntimeError("Cannot find bundled skills at repository root: skills/")
+
+
+def resolve_install_skill_sources(proj_cfg: dict) -> list[str]:
+    """Return configured install source specs with sane defaults."""
+    raw = proj_cfg.get("skill_sources")
+    if not isinstance(raw, list):
+        return list(DEFAULT_SKILL_SOURCES)
+    out = [str(v).strip() for v in raw if str(v).strip()]
+    return out or list(DEFAULT_SKILL_SOURCES)
+
+
+def install_from_skill_sources(
+    project_dir: Path,
+    project_skills: Path,
+    skill_sources: list[str],
+    *,
+    github_token: str | None,
+) -> list[str]:
+    """Install skills from configured sources into `.skillet/skills/`."""
+    errors: list[str] = []
+    if project_skills.exists():
+        shutil.rmtree(project_skills)
+    project_skills.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    specs: list[str] = []
+    for source in skill_sources:
+        if source == "@bundled":
+            copied += copy_all_skills(get_skills_dir(), project_skills)
+        else:
+            specs.append(source)
+
+    if copied:
+        click.echo(f"  ✓ Copied {copied} bundled skill(s) to .skillet/skills/")
+
+    source_file = sources_json_path(project_dir)
+    if source_file.exists():
+        source_file.unlink()
+
+    if specs:
+        tracked, add_errors = add_specs(
+            project_dir,
+            specs,
+            skip_existing=False,
+            github_token=github_token,
+        )
+        errors.extend(add_errors)
+        click.echo(f"  ✓ Tracked {tracked} configured source skill(s)")
+        apply_errors = apply_all_sources(
+            project_dir, project_skills, github_token=github_token
+        )
+        errors.extend(apply_errors)
+
+    return errors
 
 
 def get_project_skills_dir(project_dir: Path) -> Path:
@@ -70,24 +128,26 @@ def main(ctx: click.Context) -> None:
 def install(directory: str, skip_config: bool) -> None:
     """Set up ``.skillet/skills/``, sync sources, prompt for IDE targets once, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
-    bundled_skills = get_bundled_skills_dir()
     project_skills = get_project_skills_dir(project_dir)
 
     click.echo(f"\nInstalling Skillet to: {project_dir}")
 
-    copy_all_skills(bundled_skills, project_skills)
-    click.echo("  ✓ Skills copied to .skillet/skills/")
-
-    token = _github_token()
-    source_errors = apply_all_sources(
-        project_dir, project_skills, github_token=token
-    )
-    for msg in source_errors:
-        click.echo(f"  ! {msg}", err=True)
-
     get_project_config_dir(project_dir).mkdir(parents=True, exist_ok=True)
     proj_cfg = load_project_config(project_dir)
     proj_cfg.setdefault("version", PROJECT_CONFIG_VERSION)
+    proj_cfg["skill_sources"] = resolve_install_skill_sources(proj_cfg)
+    save_project_config(project_dir, proj_cfg)
+
+    token = _github_token()
+    install_errors = install_from_skill_sources(
+        project_dir,
+        project_skills,
+        proj_cfg["skill_sources"],
+        github_token=token,
+    )
+    for msg in install_errors:
+        click.echo(f"  ! {msg}", err=True)
+
     if not skip_config:
         ensure_project_ide_support(project_dir)
         proj_cfg = load_project_config(project_dir)

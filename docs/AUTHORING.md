@@ -29,7 +29,7 @@ description: When editing payment code, follow these invariants.
 
 ## Where skills live
 
-- **Bundled** defaults ship inside the `skillet` package under `bundled_skills/` (copied to `.skillet/skills/` on `skillet install`).
+- **Skills** defaults live in this repository at `skills/` and are copied to `.skillet/skills/` on `skillet install`.
 - **Repo-owned** skills live anywhere in your tree (e.g. `./team-skills/checkout-flow/`). Register them with:
 
   ```bash

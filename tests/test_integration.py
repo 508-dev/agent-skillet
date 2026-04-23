@@ -7,9 +7,9 @@ from skillet.skills.search import search_skills
 
 
 def test_parse_skill_file():
-    from skillet.cli import get_bundled_skills_dir
-    bundled = get_bundled_skills_dir()
-    git_os_skill = bundled / 'git-os' / 'SKILL.md'
+    from skillet.cli import get_skills_dir
+    skills = get_skills_dir()
+    git_os_skill = skills / 'git-os' / 'SKILL.md'
     skill = parse_skill_file(git_os_skill)
     assert skill is not None
     assert skill['name'] == 'git-os'
@@ -41,11 +41,11 @@ def test_search_skills_exact_match():
 
 
 def test_copy_and_remove_skill(tmp_path):
-    from skillet.cli import get_bundled_skills_dir
+    from skillet.cli import get_skills_dir
     
     # Copy skills
     dest = tmp_path / 'skills'
-    count = copy_all_skills(get_bundled_skills_dir(), dest)
+    count = copy_all_skills(get_skills_dir(), dest)
     assert count == 3
     assert (dest / 'git-os' / 'SKILL.md').exists()
     
@@ -61,10 +61,10 @@ def test_copy_and_remove_skill(tmp_path):
 
 def test_copy_emit_remove_prunes_all_native_mirrors(tmp_path: Path) -> None:
     """Bundled skills copied to the store, mirrored natively, then removed everywhere."""
-    from skillet.cli import get_bundled_skills_dir
+    from skillet.cli import get_skills_dir
 
     project_skills = tmp_path / ".skillet" / "skills"
-    count = copy_all_skills(get_bundled_skills_dir(), project_skills)
+    count = copy_all_skills(get_skills_dir(), project_skills)
     assert count >= 1
 
     flags = {"claude": True, "cursor": True, "opencode": True}

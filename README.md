@@ -59,6 +59,18 @@ Run `skillet config` to set up:
 - Default IDE targets for new projects
 - Optional GitHub token (private repos and API rate limits when using `skillet add` with GitHub sources)
 
+Project-level bootstrap sources for `skillet install` live in `.skillet/config/config.json`:
+
+```json
+{
+  "version": "1",
+  "ide_support": ["cursor", "claude"],
+  "skill_sources": ["@bundled", "anthropics/skills/skill-creator"]
+}
+```
+
+`skill_sources` controls where install-time skills come from. Use `@bundled` for repo `skills/`, or remove it if you only want remote/local specs.
+
 ## Practical examples
 
 Skillet is **project-local**: everything that defines “how we work here” lives in the repo (plus each developer’s optional global `~/.config/skillet/config.json` from `skillet config`). Whether you call that unit a **team**, **squad**, **client**, or **company** does not matter — you check the same paths into git, and every greenfield or brownfield repo can repeat the pattern.
