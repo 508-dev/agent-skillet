@@ -38,7 +38,7 @@ AGENT_LABELS: dict[str, str] = {
 AGENT_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
     "claude": ".claude/skills",
     "cursor": ".cursor/skills",
-    "gemini": None,
+    "gemini": ".agents/skills",
     "opencode": ".agents/skills",
     "antigravity": ".agents/skills",
     "cline": ".agents/skills",

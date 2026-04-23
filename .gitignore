@@ -15,8 +15,15 @@ build/
 
 # Editor/IDE metadata
 .idea/
-.vscode/
+.agent/
+.agents/
+.claude/
 .cursor/
+.gemini/
+.github/skills/
+.opencode/
+.qwen/
+.vscode/
 
 # OS files
 .DS_Store
