@@ -1,17 +1,19 @@
-"""Per-project ``.skillet/config`` and resolved IDE flags for emitters.
+"""Per-project ``.skillet/config`` and resolved agent flags for emitters.
 
-Each ``ide_support`` entry selects whether Skillet mirrors skills into that agent's
-native skills directory (project-relative):
+Each ``agent`` list entry selects whether Skillet mirrors skills into that agent's
+native skills directory (project-relative). Exact roots are
+``skillet.config.settings.AGENT_NATIVE_SKILL_REL_PATH``; for example:
 
 - ``claude`` → ``.claude/skills/<skill>/SKILL.md``
 - ``cursor`` → ``.cursor/skills/<skill>/SKILL.md``
-- ``gemini`` → ``.agents/skills/<skill>/SKILL.md`` 
-- ``antigravity`` → ``.agents/skills/<skill>/SKILL.md``
-- ``opencode`` → ``.agents/skills/<skill>/SKILL.md``
+- ``opencode``, ``antigravity``, ``cline``, ``codex``, ``copilot``, ``kimi`` → shared
+  ``.agents/skills/<skill>/SKILL.md``
+- ``qwen`` → ``.qwen/skills/<skill>/SKILL.md``
 
-Toggling a target affects only that target's emitted files (see
-``skillet.config.settings.IDE_NATIVE_SKILL_REL_PATH``). Disabling both ``gemini`` and
-``opencode`` removes the shared ``.agents/skills/`` tree.
+The ``gemini`` key does not mirror files yet (see ``AGENT_NATIVE_SKILL_REL_PATH``).
+
+Toggling targets affects only those roots; ``.agents/skills/`` is removed when no
+enabled target maps to it.
 """
 
 from __future__ import annotations
@@ -20,7 +22,12 @@ import json
 import sys
 from pathlib import Path
 
-from skillet.config.settings import IDE_KEYS, load_config, normalize_ide_support
+from skillet.config.settings import (
+    AGENT_KEYS,
+    load_config,
+    normalize_agents,
+    read_agents_from_mapping,
+)
 
 PROJECT_CONFIG_VERSION = "1"
 
@@ -45,74 +52,77 @@ def load_project_config(project_dir: Path) -> dict:
 
 
 def save_project_config(project_dir: Path, config: dict) -> None:
+    """Persist project config; canonical key is ``agent`` (legacy keys are removed)."""
+    cfg = dict(config)
+    agents = read_agents_from_mapping(cfg)
+    if agents:
+        cfg["agent"] = agents
+    cfg.pop("ide_support", None)
+    cfg.pop("agent_support", None)
     get_project_config_dir(project_dir).mkdir(parents=True, exist_ok=True)
     project_config_path(project_dir).write_text(
-        json.dumps(config, indent=2),
+        json.dumps(cfg, indent=2),
         encoding="utf-8",
     )
 
 
-def ide_emit_flags_from_global() -> dict[str, bool]:
-    """On/off map per IDE key from global ``ide_support`` (fallback when project unset).
+def agent_emit_flags_from_global() -> dict[str, bool]:
+    """On/off map per agent key from global ``agent`` list (fallback when project unset).
 
-    Keys are ``claude``, ``cursor``, ``gemini``, ``opencode``. A ``True`` value means
-    that target is enabled; native skill paths are defined in
-    ``settings.IDE_NATIVE_SKILL_REL_PATH`` (``gemini`` and ``opencode`` share
+    Keys match ``settings.AGENT_KEYS``. A ``True`` value means that target is enabled;
+    native paths are ``settings.AGENT_NATIVE_SKILL_REL_PATH`` (several keys can share
     ``.agents/skills/``).
     """
     config = load_config()
-    default_ides = list(IDE_KEYS)
-    keys = list(IDE_KEYS)
-    raw = config.get("ide_support", default_ides)
-    raw_norm = normalize_ide_support(raw if isinstance(raw, list) else [])
+    default_agents = list(AGENT_KEYS)
+    keys = list(AGENT_KEYS)
+    raw = config.get("agent", default_agents)
+    raw_norm = normalize_agents(raw if isinstance(raw, list) else [])
     if not raw_norm:
-        raw_norm = default_ides
+        raw_norm = default_agents
     flags = {k: k in raw_norm for k in keys}
     if not any(flags.values()):
         return {k: True for k in keys}
     return flags
 
 
-def ide_emit_flags_for_project(project_dir: Path) -> dict[str, bool]:
-    """On/off map: project ``ide_support`` overrides global when non-empty.
+def agent_emit_flags_for_project(project_dir: Path) -> dict[str, bool]:
+    """On/off map: project ``agent`` overrides global when non-empty.
 
-    See `ide_emit_flags_from_global` for key semantics and native path mapping.
+    See `agent_emit_flags_from_global` for key semantics and native path mapping.
     """
     data = load_project_config(project_dir)
-    raw = data.get("ide_support")
-    keys = list(IDE_KEYS)
-    if isinstance(raw, list) and raw:
-        raw_norm = normalize_ide_support(raw)
-        if raw_norm:
-            flags = {k: k in raw_norm for k in keys}
-            if any(flags.values()):
-                return flags
-    return ide_emit_flags_from_global()
+    keys = list(AGENT_KEYS)
+    proj_agents = read_agents_from_mapping(data)
+    if proj_agents:
+        flags = {k: k in proj_agents for k in keys}
+        if any(flags.values()):
+            return flags
+    return agent_emit_flags_from_global()
 
 
-def ensure_project_ide_support(project_dir: Path) -> None:
-    """First-time project setup: prompt (TTY) or copy global defaults for ``ide_support``."""
-    from skillet.config.settings import ide_multiselect_prompt_project
-    from skillet.config.wizard import prompt_ide_targets
+def ensure_project_agents(project_dir: Path) -> None:
+    """First-time project setup: prompt (TTY) or copy global defaults for ``agent``."""
+    from skillet.config.settings import agent_multiselect_prompt_project
+    from skillet.config.wizard import prompt_agent_targets
 
-    valid = frozenset(IDE_KEYS)
+    valid = frozenset(AGENT_KEYS)
     cfg = load_project_config(project_dir)
-    existing = cfg.get("ide_support")
-    if isinstance(existing, list) and existing:
+    if read_agents_from_mapping(cfg):
         return
 
-    g = load_config().get("ide_support", list(IDE_KEYS))
+    g = load_config().get("agent", list(AGENT_KEYS))
     if not isinstance(g, list) or not g:
-        g = list(IDE_KEYS)
+        g = list(AGENT_KEYS)
 
     if sys.stdin.isatty():
-        chosen = prompt_ide_targets(
-            message=ide_multiselect_prompt_project(),
+        chosen = prompt_agent_targets(
+            message=agent_multiselect_prompt_project(),
             hint_previous_keys=[k for k in g if k in valid],
         )
     else:
-        chosen = [k for k in g if k in valid] or list(IDE_KEYS)
+        chosen = [k for k in g if k in valid] or list(AGENT_KEYS)
 
     cfg.setdefault("version", PROJECT_CONFIG_VERSION)
-    cfg["ide_support"] = chosen
+    cfg["agent"] = chosen
     save_project_config(project_dir, cfg)

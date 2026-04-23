@@ -26,7 +26,7 @@ Load this skill **before any of the following actions** — do not proceed witho
 
 ---
 
-My Git history powers automation. Commits drive version bumps, changelogs, release notes, deployments, and CI behavior. If commits are wrong → automation breaks.
+My Git history powers automation. Commits drive version bumps, changelogs, release notes, deployments, and CI behavior. If commits are wrong -> automation breaks.
 
 ## 1. Branching Model
 
@@ -40,7 +40,7 @@ My Git history powers automation. Commits drive version bumps, changelogs, relea
 
 `<target>` is project-specific (`main`, `develop`, etc.). Never commit directly to target. All changes enter via PR.
 
-**Stacked PRs:** When PRs depend on each other, stack them bottom-up. `feat/b` branches from `feat/a`, targets `feat/a`. Merge order: a → b → c.
+**Stacked PRs:** When PRs depend on each other, stack them bottom-up. `feat/b` branches from `feat/a`, targets `feat/a`. Merge order: a -> b -> c.
 
 ## 2. Commit Format
 
@@ -81,7 +81,7 @@ BREAKING CHANGE: /v1/users removed. Use /v2/users
 
 ## 3. Atomic Commit Rule
 
-One logical change per commit. If unsure → split it.
+One logical change per commit. If unsure -> split it.
 
 ```
 # Good

@@ -1,8 +1,9 @@
-"""Re-materialize skills under `.skillet/skills/` from `.skillet/config/sources.json` specs."""
+"""Re-materialize skills under `.skillet/skills/` from ``sources.json`` and prune removed entries."""
 
 from __future__ import annotations
 
 import importlib
+from dataclasses import dataclass
 import io
 import shutil
 import zipfile
@@ -14,6 +15,15 @@ import httpx
 from skillet.installer.copier import copy_skill
 from skillet.skills.parser import parse_skill_file
 from skillet.sources.store import load_sources
+
+
+@dataclass(frozen=True)
+class MaterializeSummary:
+    """Changes under ``.skillet/skills/`` after applying ``sources.json``."""
+
+    added: tuple[str, ...]
+    removed: tuple[str, ...]
+    unchanged: tuple[str, ...]
 
 
 def _pick_github_skill_dir(dirs: list[Path], skill_name: str) -> Path | None:
@@ -108,19 +118,49 @@ def _apply_one(
     return f"unknown source kind: {kind!r}"
 
 
+def _prune_untracked_skills(skills_dest: Path, tracked: set[str]) -> list[str]:
+    """Remove materialized skill dirs not listed in ``sources.json``; return removed names."""
+    removed: list[str] = []
+    if not skills_dest.is_dir():
+        return removed
+    for entry in list(skills_dest.iterdir()):
+        if not entry.is_dir():
+            continue
+        if entry.name in tracked:
+            continue
+        removed.append(entry.name)
+        shutil.rmtree(entry)
+    return sorted(removed)
+
+
 def apply_all_sources(
     project_dir: Path,
     skills_dest: Path,
     *,
     github_token: str | None = None,
-) -> list[str]:
-    """Apply every entry in ``.skillet/config/sources.json``."""
+) -> tuple[list[str], MaterializeSummary]:
+    """Apply every entry in ``.skillet/config/sources.json`` and drop untracked skill dirs."""
     skills_dest.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
-    for name, spec in load_sources(project_dir).items():
+    sources = load_sources(project_dir)
+    existing_before = {p.name for p in skills_dest.iterdir() if p.is_dir()}
+    added_names: list[str] = []
+    unchanged_names: list[str] = []
+    for name, spec in sources.items():
+        existed = name in existing_before
         err = _apply_one(
             name, spec, project_dir, skills_dest, github_token=github_token
         )
         if err:
             errors.append(f"{name}: {err}")
-    return errors
+        elif existed:
+            unchanged_names.append(name)
+        else:
+            added_names.append(name)
+    removed_names = _prune_untracked_skills(skills_dest, set(sources.keys()))
+    summary = MaterializeSummary(
+        added=tuple(sorted(added_names)),
+        removed=tuple(removed_names),
+        unchanged=tuple(sorted(unchanged_names)),
+    )
+    return errors, summary

@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from skillet.cli import main
+from skillet.cli import _materialize_summary_lines, _sync_footer, main
+from skillet.sources import MaterializeSummary
 from skillet.config.project import PROJECT_CONFIG_VERSION, save_project_config
 from skillet.sources.store import load_sources, save_sources
 
@@ -25,7 +26,7 @@ def _ensure_all_native_targets(project_dir: Path) -> None:
         project_dir,
         {
             "version": PROJECT_CONFIG_VERSION,
-            "ide_support": ["claude", "cursor", "opencode"],
+            "agent": ["claude", "cursor", "opencode"],
         },
     )
 
@@ -41,8 +42,8 @@ def test_install_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -
     assert cfg_path.is_file()
     data = json.loads(cfg_path.read_text(encoding="utf-8"))
     assert data.get("version") == "1"
-    assert isinstance(data.get("ide_support"), list)
-    assert data["ide_support"]
+    assert isinstance(data.get("agent"), list)
+    assert data["agent"]
 
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
@@ -86,7 +87,7 @@ def test_install_mirrors_native_skill_directories(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_ide_support",
+        "skillet.cli.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -107,7 +108,7 @@ def test_sync_restores_native_mirrors_from_sources_json(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_ide_support",
+        "skillet.cli.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -128,7 +129,7 @@ def test_remove_prunes_skill_from_all_native_trees(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_ide_support",
+        "skillet.cli.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -147,7 +148,7 @@ def test_sync_strips_legacy_skillet_files(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_ide_support",
+        "skillet.cli.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -186,3 +187,22 @@ def test_add_local_skill_mirrors_to_native_directories(
         p = tmp_path / base / "extra-skill" / "SKILL.md"
         assert p.is_file()
         assert "extra-skill" in p.read_text(encoding="utf-8")
+
+
+def test_sync_footer_includes_error_count() -> None:
+    assert _sync_footer([]) == "✓ Sync complete!"
+    assert _sync_footer(["x"]) == "✓ Sync complete! (1 error during sync)"
+    assert _sync_footer(["x", "y"]) == "✓ Sync complete! (2 errors during sync)"
+
+
+def test_materialize_summary_lines_joins_buckets() -> None:
+    s = MaterializeSummary(
+        added=("a",),
+        removed=("b",),
+        unchanged=("c", "d"),
+    )
+    lines = _materialize_summary_lines(s, had_apply_errors=False)
+    assert len(lines) == 1
+    assert "added: a" in lines[0]
+    assert "removed: b" in lines[0]
+    assert "unchanged: c, d" in lines[0]

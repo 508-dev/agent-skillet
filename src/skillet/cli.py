@@ -7,9 +7,9 @@ import click
 from skillet import __version__
 from skillet.config.project import (
     PROJECT_CONFIG_VERSION,
-    ensure_project_ide_support,
+    agent_emit_flags_for_project,
+    ensure_project_agents,
     get_project_config_dir,
-    ide_emit_flags_for_project,
     load_project_config,
     save_project_config,
 )
@@ -22,6 +22,7 @@ from skillet.skills.parser import get_skills_from_directory
 from skillet.skills.search import search_skills
 from skillet.operations.add_specs import add_specs, apply_sources_and_emit
 from skillet.sources import (
+    MaterializeSummary,
     apply_all_sources,
     load_sources,
     remove_source_entry,
@@ -68,9 +69,9 @@ def get_project_skills_dir(project_dir: Path) -> Path:
 
 def _emit_native_mirrors(project_dir: Path) -> dict[str, str]:
     """Mirror ``.skillet/skills`` into enabled native agent skill directories."""
-    ide_config = ide_emit_flags_for_project(project_dir)
+    agent_flags = agent_emit_flags_for_project(project_dir)
     project_skills = get_project_skills_dir(project_dir)
-    return write_config_files(project_skills, project_dir, ide_config)
+    return write_config_files(project_skills, project_dir, agent_flags)
 
 
 def _github_token() -> str | None:
@@ -78,6 +79,37 @@ def _github_token() -> str | None:
     if t:
         return t
     return (load_config().get("github_token") or "").strip() or None
+
+
+def _print_sync_errors(errors: list[str]) -> None:
+    for msg in errors:
+        click.secho(f"  ! {msg}", fg="red", err=True)
+
+
+def _sync_footer(errors: list[str]) -> str:
+    count = len(errors)
+    if count == 0:
+        return "✓ Sync complete!"
+    noun = "error" if count == 1 else "errors"
+    return f"✓ Sync complete! ({count} {noun} during sync)"
+
+
+def _materialize_summary_lines(
+    summary: MaterializeSummary, *, had_apply_errors: bool
+) -> list[str]:
+    """Human-readable lines for what changed under ``.skillet/skills/``."""
+    if had_apply_errors and not (summary.added or summary.removed or summary.unchanged):
+        return ["Skills — none successfully materialized (see errors above)."]
+    if not (summary.added or summary.removed or summary.unchanged):
+        return ["Skills — no changes (sources.json has no skill entries)."]
+    parts: list[str] = []
+    if summary.added:
+        parts.append(f"added: {', '.join(summary.added)}")
+    if summary.removed:
+        parts.append(f"removed: {', '.join(summary.removed)}")
+    if summary.unchanged:
+        parts.append(f"unchanged: {', '.join(summary.unchanged)}")
+    return [f"Skills — {' · '.join(parts)}"]
 
 
 @click.group(invoke_without_command=True)
@@ -94,10 +126,10 @@ def main(ctx: click.Context) -> None:
 @click.option(
     "--skip-config",
     is_flag=True,
-    help="Skip IDE target prompt and native skill directory mirroring",
+    help="Skip agent target prompt and native skill directory mirroring",
 )
 def install(directory: str, skip_config: bool) -> None:
-    """Set up ``.skillet/skills/``, sync sources, prompt for IDE targets once, mirror native skill dirs."""
+    """Set up ``.skillet/skills/``, sync sources, prompt for agent targets once, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
@@ -116,12 +148,17 @@ def install(directory: str, skip_config: bool) -> None:
         shutil.rmtree(project_skills)
     project_skills.mkdir(parents=True, exist_ok=True)
     token = _github_token()
-    install_errors = apply_all_sources(project_dir, project_skills, github_token=token)
-    for msg in install_errors:
-        click.echo(f"  ! {msg}", err=True)
+    install_errors, install_summary = apply_all_sources(
+        project_dir, project_skills, github_token=token
+    )
+    _print_sync_errors(install_errors)
+    for line in _materialize_summary_lines(
+        install_summary, had_apply_errors=bool(install_errors)
+    ):
+        click.echo(line)
 
     if not skip_config:
-        ensure_project_ide_support(project_dir)
+        ensure_project_agents(project_dir)
         proj_cfg = load_project_config(project_dir)
     save_project_config(project_dir, proj_cfg)
 
@@ -151,8 +188,7 @@ def add(spec: str, directory: str) -> None:
         skip_existing=False,
         github_token=token,
     )
-    for msg in pre_errors:
-        click.echo(f"  ! {msg}", err=True)
+    _print_sync_errors(pre_errors)
 
     if tracked == 0:
         if looks_like_local_source_spec(spec) and not pre_errors:
@@ -169,11 +205,14 @@ def add(spec: str, directory: str) -> None:
     else:
         click.echo(f"✓ Tracked {tracked} skill(s) in .skillet/config/sources.json")
 
-    apply_errors, written = apply_sources_and_emit(
+    apply_errors, written, add_summary = apply_sources_and_emit(
         project_dir, github_token=token
     )
-    for msg in apply_errors:
-        click.echo(f"  ! {msg}", err=True)
+    _print_sync_errors(apply_errors)
+    for line in _materialize_summary_lines(
+        add_summary, had_apply_errors=bool(apply_errors)
+    ):
+        click.echo(line)
 
     for fname, _ in written.items():
         click.echo(f"  ✓ {fname} mirrored")
@@ -219,18 +258,21 @@ def sync(directory: str) -> None:
 
     project_skills.mkdir(parents=True, exist_ok=True)
     token = _github_token()
-    source_errors = apply_all_sources(
+    source_errors, sync_summary = apply_all_sources(
         project_dir, project_skills, github_token=token
     )
-    for msg in source_errors:
-        click.echo(f"  ! {msg}", err=True)
+    _print_sync_errors(source_errors)
 
     written = _emit_native_mirrors(project_dir)
 
     click.echo("\nUpdated native skill directories:")
     for name, _path in written.items():
         click.echo(f"  ✓ {name}")
-    click.echo("\n✓ Sync complete!")
+    for line in _materialize_summary_lines(
+        sync_summary, had_apply_errors=bool(source_errors)
+    ):
+        click.echo(line)
+    click.echo(f"\n{_sync_footer(source_errors)}")
 
 
 @main.command("list")
@@ -290,7 +332,7 @@ def search_cmd(term: str, directory: str) -> None:
 
 @main.command("config")
 def config_cmd() -> None:
-    """Global defaults: IDE targets and optional GitHub token for `skillet add`."""
+    """Global defaults: agent targets and optional GitHub token for `skillet add`."""
     run_config_wizard()
 
 

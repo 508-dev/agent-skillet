@@ -98,6 +98,40 @@ def test_only_opencode_mirrors_agents_skills(tmp_path: Path) -> None:
     assert not (tmp_path / ".cursor" / "skills").exists()
 
 
+def test_qwen_mirrors_dot_qwen_skills(tmp_path: Path) -> None:
+    skills_dir = tmp_path / ".skillet" / "skills"
+    _write_skill(skills_dir, "qw", "q skill")
+
+    written = write_config_files(
+        skills_dir,
+        tmp_path,
+        {"claude": False, "cursor": False, "opencode": False, "qwen": True},
+    )
+
+    assert (tmp_path / ".qwen" / "skills" / "qw" / "SKILL.md").is_file()
+    assert written[".qwen/skills/"] == str(tmp_path / ".qwen" / "skills")
+    assert not (tmp_path / ".agents" / "skills").exists()
+
+
+def test_agents_skills_kept_when_cline_on_but_opencode_off(tmp_path: Path) -> None:
+    skills_dir = tmp_path / ".skillet" / "skills"
+    _write_skill(skills_dir, "c", "c skill")
+
+    write_config_files(
+        skills_dir,
+        tmp_path,
+        {"claude": False, "cursor": False, "opencode": False, "cline": True},
+    )
+    assert (tmp_path / ".agents" / "skills" / "c" / "SKILL.md").is_file()
+
+    write_config_files(
+        skills_dir,
+        tmp_path,
+        {"claude": False, "cursor": False, "opencode": False, "cline": False},
+    )
+    assert not (tmp_path / ".agents" / "skills").exists()
+
+
 def test_no_targets_enabled_returns_empty_written_and_prunes_mirrors(
     tmp_path: Path,
 ) -> None:
