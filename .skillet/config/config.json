@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "ide_support": [
+  "agent": [
     "cursor",
     "gemini"
   ]

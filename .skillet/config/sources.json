@@ -1,10 +1,10 @@
 {
+  "git-os": {
+    "kind": "local",
+    "source": "git-os"
+  },
   "skill-creator": {
     "kind": "github",
     "spec": "anthropics/skills/skill-creator"
-  },
-  "soultrace": {
-    "kind": "github",
-    "spec": "soultrace-ai/soultrace-skill/soultrace"
   }
 }

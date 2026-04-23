@@ -81,8 +81,11 @@ def test_apply_github_skill(
         "gh-skill",
         {"kind": "github", "spec": "demo/repo"},
     )
-    errors = apply_all_sources(tmp_path, skills_dest, github_token=None)
+    errors, summary = apply_all_sources(tmp_path, skills_dest, github_token=None)
     assert errors == []
+    assert summary.added == ("gh-skill",)
+    assert summary.removed == ()
+    assert summary.unchanged == ()
     assert (skills_dest / "gh-skill" / "SKILL.md").is_file()
 
 
@@ -95,8 +98,11 @@ def test_apply_local_skill(tmp_path: Path) -> None:
 
     skills_dest = tmp_path / ".skillet" / "skills"
     upsert_source(tmp_path, "my-skill", {"kind": "local", "path": "external/my-skill"})
-    errors = apply_all_sources(tmp_path, skills_dest)
+    errors, summary = apply_all_sources(tmp_path, skills_dest)
     assert errors == []
+    assert summary.added == ("my-skill",)
+    assert summary.removed == ()
+    assert summary.unchanged == ()
     assert (skills_dest / "my-skill" / "SKILL.md").is_file()
 
 
@@ -109,6 +115,56 @@ def test_apply_local_skill_from_repo_skills_source_key(tmp_path: Path) -> None:
 
     skills_dest = tmp_path / ".skillet" / "skills"
     upsert_source(tmp_path, "git-os", {"kind": "local", "source": "git-os"})
-    errors = apply_all_sources(tmp_path, skills_dest)
+    errors, summary = apply_all_sources(tmp_path, skills_dest)
+    assert errors == []
+    assert summary.added == ("git-os",)
+    assert summary.removed == ()
+    assert summary.unchanged == ()
+    assert (skills_dest / "git-os" / "SKILL.md").is_file()
+
+
+def test_apply_all_sources_prunes_skills_removed_from_sources_json(
+    tmp_path: Path,
+) -> None:
+    bundled = tmp_path / "skills" / "git-os"
+    bundled.mkdir(parents=True)
+    (bundled / "SKILL.md").write_text(
+        "---\nname: git-os\ndescription: bundled\n---\n", encoding="utf-8"
+    )
+
+    skills_dest = tmp_path / ".skillet" / "skills"
+    skills_dest.mkdir(parents=True)
+    orphan = skills_dest / "soultrace"
+    orphan.mkdir()
+    (orphan / "SKILL.md").write_text(
+        "---\nname: soultrace\ndescription: x\n---\n", encoding="utf-8"
+    )
+
+    upsert_source(tmp_path, "git-os", {"kind": "local", "source": "git-os"})
+    errors, summary = apply_all_sources(tmp_path, skills_dest)
     assert errors == []
     assert (skills_dest / "git-os" / "SKILL.md").is_file()
+    assert not (skills_dest / "soultrace").exists()
+    assert summary.added == ("git-os",)
+    assert summary.removed == ("soultrace",)
+    assert summary.unchanged == ()
+
+
+def test_apply_all_sources_second_run_marks_unchanged(tmp_path: Path) -> None:
+    bundled = tmp_path / "skills" / "git-os"
+    bundled.mkdir(parents=True)
+    (bundled / "SKILL.md").write_text(
+        "---\nname: git-os\ndescription: bundled\n---\n", encoding="utf-8"
+    )
+    skills_dest = tmp_path / ".skillet" / "skills"
+    upsert_source(tmp_path, "git-os", {"kind": "local", "source": "git-os"})
+    first_errors, first_summary = apply_all_sources(tmp_path, skills_dest)
+    assert first_errors == []
+    assert first_summary.added == ("git-os",)
+    assert first_summary.unchanged == ()
+
+    second_errors, second_summary = apply_all_sources(tmp_path, skills_dest)
+    assert second_errors == []
+    assert second_summary.added == ()
+    assert second_summary.removed == ()
+    assert second_summary.unchanged == ("git-os",)

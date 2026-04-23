@@ -6,7 +6,13 @@ import os
 from pathlib import Path
 
 from skillet.skills.parser import parse_skill_file
-from skillet.sources import looks_like_local_source_spec, resolving, upsert_source
+from skillet.sources import (
+    MaterializeSummary,
+    apply_all_sources,
+    looks_like_local_source_spec,
+    resolving,
+    upsert_source,
+)
 from skillet.sources.github import GitHubSourceSpec, parse_github_source_spec, serialize_github_source_spec
 from skillet.sources.store import load_sources
 
@@ -125,19 +131,18 @@ def add_specs(
 
 def apply_sources_and_emit(
     project_dir: Path,
-    ide_config: dict | None = None,
+    agent_flags: dict | None = None,
     *,
     github_token: str | None = None,
-) -> tuple[list[str], dict[str, str]]:
+) -> tuple[list[str], dict[str, str], MaterializeSummary]:
     """Run ``apply_all_sources`` and refresh native agent skill directory mirrors."""
-    from skillet.config.project import ide_emit_flags_for_project
+    from skillet.config.project import agent_emit_flags_for_project
     from skillet.installer.emitters import write_config_files
-    from skillet.sources import apply_all_sources
 
     project_dir = project_dir.resolve()
     project_skills = project_dir / ".skillet" / "skills"
     project_skills.mkdir(parents=True, exist_ok=True)
-    errors = apply_all_sources(project_dir, project_skills, github_token=github_token)
-    flags = ide_config if ide_config is not None else ide_emit_flags_for_project(project_dir)
+    errors, summary = apply_all_sources(project_dir, project_skills, github_token=github_token)
+    flags = agent_flags if agent_flags is not None else agent_emit_flags_for_project(project_dir)
     written = write_config_files(project_skills, project_dir, flags)
-    return errors, written
+    return errors, written, summary

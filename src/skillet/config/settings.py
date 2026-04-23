@@ -1,103 +1,138 @@
-"""Shared IDE metadata and global user config (~/.config/skillet/config.json)."""
+"""Shared agent-target metadata and global user config (~/.config/skillet/config.json)."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-IDE_KEYS = ("claude", "cursor", "gemini", "opencode")
+AGENT_KEYS = (
+    "claude",
+    "cursor",
+    "gemini",
+    "opencode",
+    "antigravity",
+    "cline",
+    "codex",
+    "copilot",
+    "kimi",
+    "qwen",
+)
 
 # Short product names (hints, reference lines).
-IDE_LABELS: dict[str, str] = {
+AGENT_LABELS: dict[str, str] = {
     "claude": "Claude Code",
     "cursor": "Cursor",
-    "gemini": "Gemini CLI (reference only; no Skillet file mirror in this version)",
-    "opencode": "OpenCode & universal agents (`.agents/skills/`)",
+    "gemini": "Gemini CLI",
+    "opencode": "OpenCode",
+    "antigravity": "Antigravity",
+    "cline": "Cline",
+    "codex": "Codex",
+    "copilot": "GitHub Copilot",
+    "kimi": "Kimi Code CLI",
+    "qwen": "Qwen Code",
 }
 
 # Project-relative roots where Skillet mirrors each skill as ``<name>/SKILL.md``.
-# ``gemini`` is a config key for future use; Skillet only mirrors ``.agents/skills/`` for ``opencode``.
-IDE_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
+# Paths follow agentskills / Vercel agent layout conventions (project scope).
+# ``gemini`` is reserved for future use; mirror ``.agents/skills/`` via ``opencode`` or another target.
+AGENT_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
     "claude": ".claude/skills",
     "cursor": ".cursor/skills",
     "gemini": None,
     "opencode": ".agents/skills",
+    "antigravity": ".agents/skills",
+    "cline": ".agents/skills",
+    "codex": ".agents/skills",
+    "copilot": ".agents/skills",
+    "kimi": ".agents/skills",
+    "qwen": ".qwen/skills",
 }
 
 
-def ide_native_skill_rel_path(ide_key: str) -> str | None:
-    """Return the mirrored skills directory for ``ide_key``, or ``None`` if there is none."""
-    return IDE_NATIVE_SKILL_REL_PATH.get(ide_key)
+def agent_native_skill_rel_path(agent_key: str) -> str | None:
+    """Return the mirrored skills directory for ``agent_key``, or ``None`` if there is none."""
+    return AGENT_NATIVE_SKILL_REL_PATH.get(agent_key)
 
 
-def ide_emits_native_skill_mirror(ide_key: str) -> bool:
+def agent_emits_native_skill_mirror(agent_key: str) -> bool:
     """Whether Skillet mirrors skills into a native per-agent directory for this target."""
-    return ide_native_skill_rel_path(ide_key) is not None
+    return agent_native_skill_rel_path(agent_key) is not None
 
 
-def ide_multiselect_choice_label(ide_key: str) -> str:
+def agent_multiselect_choice_label(agent_key: str) -> str:
     """One-line checkbox label: product name and native path (wizard / project prompts)."""
-    if ide_key not in IDE_LABELS:
-        return ide_key
-    name = IDE_LABELS[ide_key]
-    rel = IDE_NATIVE_SKILL_REL_PATH.get(ide_key)
+    if agent_key not in AGENT_LABELS:
+        return agent_key
+    name = AGENT_LABELS[agent_key]
+    rel = AGENT_NATIVE_SKILL_REL_PATH.get(agent_key)
     if rel:
         return f"{name} — {rel}/"
     return f"{name} — (config only; no native skill mirror)"
 
 
-def format_ide_target_mapping_summary(selected_keys: list[str]) -> str:
-    """Human-readable summary of native mirror paths for the given ``ide_support`` list."""
+def format_agent_target_mapping_summary(selected_keys: list[str]) -> str:
+    """Human-readable summary of native mirror paths for the given ``agent`` key list."""
     path_order: list[str] = []
     path_to_names: dict[str, list[str]] = {}
-    for key in IDE_KEYS:
+    for key in AGENT_KEYS:
         if key not in selected_keys:
             continue
-        rel = IDE_NATIVE_SKILL_REL_PATH.get(key)
+        rel = AGENT_NATIVE_SKILL_REL_PATH.get(key)
         if not rel:
             continue
         if rel not in path_to_names:
             path_order.append(rel)
             path_to_names[rel] = []
-        path_to_names[rel].append(IDE_LABELS[key])
+        path_to_names[rel].append(AGENT_LABELS[key])
     lines = [
         f"  • {', '.join(path_to_names[p])}: {p}/" for p in path_order
     ]
     if not lines:
         return ""
-    return "Native skill directories for enabled targets:\n" + "\n".join(lines)
+    return "Native skill directories for enabled agents:\n" + "\n".join(lines)
 
 
-def normalize_ide_support(keys: list[str] | None) -> list[str]:
-    """Drop unknown keys from stored lists."""
+def normalize_agents(keys: list[str] | None) -> list[str]:
+    """Drop unknown agent keys from stored lists."""
     if not isinstance(keys, list):
         return []
-    return [k for k in keys if k in IDE_KEYS]
+    return [k for k in keys if k in AGENT_KEYS]
 
 
-def ide_checkbox_instruction() -> str:
+def read_agents_from_mapping(m: dict) -> list[str]:
+    """Resolve agent keys from ``agent``, then legacy ``agent_support`` or ``ide_support``."""
+    for key in ("agent", "agent_support", "ide_support"):
+        raw = m.get(key)
+        if isinstance(raw, list) and raw:
+            norm = normalize_agents(raw)
+            if norm:
+                return norm
+    return []
+
+
+def agent_checkbox_instruction() -> str:
     return "(Space = select, Enter = confirm; at least one required)"
 
 
-def ide_multiselect_usage_line() -> str:
+def agent_multiselect_usage_line() -> str:
     return (
-        "Nothing is pre-selected — press Space on each IDE you use, then Enter."
+        "Nothing is pre-selected — press Space on each agent you use, then Enter."
     )
 
 
-def ide_multiselect_prompt_global() -> str:
-    return f"Which IDEs do you use?\n  {ide_multiselect_usage_line()}"
+def agent_multiselect_prompt_global() -> str:
+    return f"Which agents do you use?\n  {agent_multiselect_usage_line()}"
 
 
-def ide_multiselect_prompt_project() -> str:
+def agent_multiselect_prompt_project() -> str:
     return (
-        "Which IDEs should this project target?\n"
-        f"  {ide_multiselect_usage_line()}"
+        "Which agents should this project target?\n"
+        f"  {agent_multiselect_usage_line()}"
     )
 
 
-def ide_reference_hint_line(keys: list[str]) -> str | None:
-    labels = [IDE_LABELS[k] for k in keys if k in IDE_LABELS]
+def agent_reference_hint_line(keys: list[str]) -> str | None:
+    labels = [AGENT_LABELS[k] for k in keys if k in AGENT_LABELS]
     if not labels:
         return None
     return (
@@ -115,12 +150,12 @@ def _lean_config_from_raw(raw: dict | None) -> dict:
     """Only fields Skillet reads; strips legacy keys from older installs."""
     if not isinstance(raw, dict):
         raw = {}
-    ide = normalize_ide_support(raw.get("ide_support"))
-    if not ide:
-        ide = list(IDE_KEYS)
+    agents = read_agents_from_mapping(raw)
+    if not agents:
+        agents = list(AGENT_KEYS)
     token = raw.get("github_token")
     gh = token.strip() if isinstance(token, str) else ""
-    return {"ide_support": ide, "github_token": gh}
+    return {"agent": agents, "github_token": gh}
 
 
 def load_config() -> dict:

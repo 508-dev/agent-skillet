@@ -59,15 +59,16 @@ Example: install only local `git-os` (exclude other repo skills):
 
 ## Where agents load skills (native paths)
 
-On `skillet install`, `skillet sync`, and `skillet add`, Skillet **mirrors** each materialized skill from `.skillet/skills/<name>/` into the enabled targets’ native trees (one `SKILL.md` per skill folder):
+On `skillet install`, `skillet sync`, and `skillet add`, Skillet **mirrors** each materialized skill from `.skillet/skills/<name>/` into the enabled agents’ native trees (one `SKILL.md` per skill folder):
 
-| Target | Project path |
+| Agent (`agent` key) | Project path |
 |--------|----------------|
-| Claude Code (`claude` in `ide_support`) | `.claude/skills/<name>/SKILL.md` |
+| Claude Code (`claude`) | `.claude/skills/<name>/SKILL.md` |
 | Cursor (`cursor`) | `.cursor/skills/<name>/SKILL.md` |
-| OpenCode / universal agents (`opencode`) | `.agents/skills/<name>/SKILL.md` |
+| OpenCode and other `.agents/skills/` agents (`opencode`, `antigravity`, `cline`, …) | `.agents/skills/<name>/SKILL.md` |
+| Qwen Code (`qwen`) | `.qwen/skills/<name>/SKILL.md` |
 
-The `gemini` key in `ide_support` is reserved for future use; in the current version Skillet does **not** write files for it. Use `opencode` if you need `.agents/skills/`.
+The `gemini` key in the `agent` list is reserved for future use; in the current version Skillet does **not** write files for it. Use `opencode` (or another `.agents/skills/` agent) if you need that tree. Legacy `ide_support` / `agent_support` in JSON is still read and migrated on save.
 
 ## Agent Skills specification
 

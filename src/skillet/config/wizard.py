@@ -5,41 +5,41 @@ from __future__ import annotations
 import questionary
 
 from skillet.config.settings import (
-    IDE_KEYS,
-    IDE_LABELS,
-    format_ide_target_mapping_summary,
+    AGENT_KEYS,
+    AGENT_LABELS,
+    agent_checkbox_instruction,
+    agent_multiselect_choice_label,
+    agent_multiselect_prompt_global,
+    agent_reference_hint_line,
+    format_agent_target_mapping_summary,
     get_config_path,
-    ide_checkbox_instruction,
-    ide_multiselect_choice_label,
-    ide_multiselect_prompt_global,
-    ide_reference_hint_line,
     load_config,
     save_config,
 )
 
 
-def prompt_ide_targets(
+def prompt_agent_targets(
     *,
     message: str,
     hint_previous_keys: list[str] | None = None,
 ) -> list[str]:
-    """Multi-select IDE keys; all rows start unchecked; at least one required."""
+    """Multi-select agent keys; all rows start unchecked; at least one required."""
     full_message = message.rstrip()
     if hint_previous_keys:
-        hint = ide_reference_hint_line(hint_previous_keys)
+        hint = agent_reference_hint_line(hint_previous_keys)
         if hint:
             full_message = f"{full_message}\n{hint}"
 
     choices = [
-        {"name": ide_multiselect_choice_label(k), "value": k, "checked": False}
-        for k in IDE_KEYS
+        {"name": agent_multiselect_choice_label(k), "value": k, "checked": False}
+        for k in AGENT_KEYS
     ]
 
     def _need_at_least_one(selected: list[str]) -> bool | str:
         if len(selected) >= 1:
             return True
         return (
-            "Select at least one IDE (Space toggles a row, Enter confirms). "
+            "Select at least one agent (Space toggles a row, Enter confirms). "
             "You cannot continue with none selected."
         )
 
@@ -48,11 +48,11 @@ def prompt_ide_targets(
             full_message,
             choices=choices,
             validate=_need_at_least_one,
-            instruction=ide_checkbox_instruction(),
+            instruction=agent_checkbox_instruction(),
         ).ask()
         if picked is None:
             raise KeyboardInterrupt
-        filtered = [p for p in picked if p in IDE_LABELS]
+        filtered = [p for p in picked if p in AGENT_LABELS]
         if filtered:
             return filtered
 
@@ -65,19 +65,19 @@ def _ask_text(message: str, default: str) -> str:
 
 
 def run_config_wizard() -> None:
-    """Interactive wizard: default IDE targets and optional GitHub token for Skillet."""
+    """Interactive wizard: default agent targets and optional GitHub token for Skillet."""
     config_path_existed = get_config_path().exists()
     config = load_config()
 
-    prior = config.get("ide_support")
+    prior = config.get("agent")
     if not isinstance(prior, list) or not prior:
-        prior = list(IDE_KEYS)
-    prior_norm = [k for k in prior if k in IDE_LABELS]
-    ide_selected = prompt_ide_targets(
-        message=ide_multiselect_prompt_global(),
+        prior = list(AGENT_KEYS)
+    prior_norm = [k for k in prior if k in AGENT_LABELS]
+    agent_selected = prompt_agent_targets(
+        message=agent_multiselect_prompt_global(),
         hint_previous_keys=prior_norm if config_path_existed else None,
     )
-    config["ide_support"] = ide_selected
+    config["agent"] = agent_selected
 
     config["github_token"] = _ask_text(
         "GitHub token (optional; private skill repos and API limits for `skillet add`):",
@@ -92,10 +92,10 @@ def run_config_wizard() -> None:
 def _print_config_wizard_footer(config: dict) -> None:
     print("\n✓ Configuration saved to ~/.config/skillet/config.json")
 
-    ide = config.get("ide_support")
-    if isinstance(ide, list) and ide:
-        summary = format_ide_target_mapping_summary(
-            [k for k in ide if k in IDE_LABELS]
+    agents = config.get("agent")
+    if isinstance(agents, list) and agents:
+        summary = format_agent_target_mapping_summary(
+            [k for k in agents if k in AGENT_LABELS]
         )
         if summary:
             print(f"\n{summary}")

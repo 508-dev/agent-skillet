@@ -1,9 +1,11 @@
-"""Emit mirrored native skill directories (``.claude/skills``, ``.cursor/skills``, ``.agents/skills``)."""
+"""Emit mirrored native skill directories (see ``AGENT_NATIVE_SKILL_REL_PATH``)."""
 
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
+
+from skillet.config.settings import AGENT_KEYS, AGENT_NATIVE_SKILL_REL_PATH
 
 _LEGACY_TO_REMOVE: tuple[Path, ...] = (
     # Removed in native-only Skillet: migrate away from these paths.
@@ -25,26 +27,33 @@ def _remove_legacy_rule_and_index_files(project_dir: Path) -> None:
                 gh.rmdir()
 
 
+def _native_rel_paths_needed(config: dict) -> set[str]:
+    """Relative mirror roots (posix) that should exist for enabled agents."""
+    needed: set[str] = set()
+    for k in AGENT_KEYS:
+        if not config.get(k):
+            continue
+        rel = AGENT_NATIVE_SKILL_REL_PATH.get(k)
+        if rel:
+            needed.add(rel)
+    return needed
+
+
 def _prune_disabled_emitters(project_dir: Path, config: dict) -> None:
-    """Remove mirrored skill trees for IDE targets that are off."""
-    if not config.get("claude"):
-        claude_skills = project_dir / ".claude" / "skills"
-        if claude_skills.is_dir():
-            shutil.rmtree(claude_skills)
-    if not config.get("cursor"):
-        cursor_skills = project_dir / ".cursor" / "skills"
-        if cursor_skills.is_dir():
-            shutil.rmtree(cursor_skills)
-    if not config.get("opencode"):
-        agents_skills = project_dir / ".agents" / "skills"
-        if agents_skills.is_dir():
-            shutil.rmtree(agents_skills)
+    """Remove mirrored skill trees when no enabled agent uses that root."""
+    needed = _native_rel_paths_needed(config)
+    for rel in {p for p in AGENT_NATIVE_SKILL_REL_PATH.values() if p}:
+        if rel in needed:
+            continue
+        tree = project_dir / rel
+        if tree.is_dir():
+            shutil.rmtree(tree)
 
 
 def emit_native_skills(skills_dir: Path, dest_root: Path) -> None:
     """Mirror each skill at ``<dest_root>/<name>/SKILL.md`` and prune removed skills.
 
-    ``dest_root`` is one of: ``.claude/skills``, ``.cursor/skills``, ``.agents/skills``.
+    ``dest_root`` is a value from ``AGENT_NATIVE_SKILL_REL_PATH`` (e.g. ``.claude/skills``).
     """
     dest_root.mkdir(parents=True, exist_ok=True)
 
@@ -71,24 +80,24 @@ def emit_claude_code_skills(skills_dir: Path, project_dir: Path) -> None:
 
 
 def write_config_files(skills_dir: Path, project_dir: Path, config: dict) -> dict:
-    """Write native skill directory trees for enabled IDE targets. Returns paths written."""
+    """Write native skill directory trees for enabled agent targets. Returns paths written."""
     _remove_legacy_rule_and_index_files(project_dir)
     _prune_disabled_emitters(project_dir, config)
     result: dict[str, str] = {}
+    seen: set[Path] = set()
 
-    if config.get("claude"):
-        root = project_dir / ".claude" / "skills"
+    for k in AGENT_KEYS:
+        if not config.get(k):
+            continue
+        rel = AGENT_NATIVE_SKILL_REL_PATH.get(k)
+        if not rel:
+            continue
+        root = project_dir / rel
+        if root in seen:
+            continue
+        seen.add(root)
         emit_native_skills(skills_dir, root)
-        result[".claude/skills/"] = str(root)
-
-    if config.get("cursor"):
-        root = project_dir / ".cursor" / "skills"
-        emit_native_skills(skills_dir, root)
-        result[".cursor/skills/"] = str(root)
-
-    if config.get("opencode"):
-        root = project_dir / ".agents" / "skills"
-        emit_native_skills(skills_dir, root)
-        result[".agents/skills/"] = str(root)
+        key = rel if rel.endswith("/") else f"{rel}/"
+        result[key] = str(root)
 
     return result

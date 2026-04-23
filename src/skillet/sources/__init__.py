@@ -21,7 +21,7 @@ from skillet.sources.local import (
     resolve_local_skill_directories,
     resolve_local_skill_path,
 )
-from skillet.sources.apply import apply_all_sources
+from skillet.sources.apply import MaterializeSummary, apply_all_sources
 from skillet.sources.store import (
     load_sources,
     remove_source_entry,
@@ -43,6 +43,7 @@ __all__ = [
     "resolve_skill_directories",
     "resolving",
     "serialize_github_source_spec",
+    "MaterializeSummary",
     "apply_all_sources",
     "load_sources",
     "remove_source_entry",
