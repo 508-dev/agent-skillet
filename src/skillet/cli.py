@@ -129,7 +129,7 @@ def main(ctx: click.Context) -> None:
     help="Skip agent target prompt and native skill directory mirroring",
 )
 def init_cmd(directory: str, skip_config: bool) -> None:
-    """Set up ``.skillet/skills/``, sync sources, prompt for agent targets once, mirror native skill dirs."""
+    """Initialize Skillet in a directory, sync sources, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
@@ -174,7 +174,7 @@ def init_cmd(directory: str, skip_config: bool) -> None:
 @click.argument("spec")
 @click.argument("directory", default=".")
 def add(spec: str, directory: str) -> None:
-    """Add skills from a local directory or GitHub (``owner/repo[/path][@ref]``)."""
+    """Add skills from a local skills directory or GitHub."""
     from skillet.sources import looks_like_local_source_spec
 
     project_dir = Path(directory).resolve()
@@ -222,7 +222,7 @@ def add(spec: str, directory: str) -> None:
 @click.argument("name")
 @click.argument("directory", default=".")
 def remove(name: str, directory: str) -> None:
-    """Remove an installed skill from ``.skillet/skills/`` and ``.skillet/config/sources.json``."""
+    """Remove an installed skill."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
@@ -247,7 +247,7 @@ def remove(name: str, directory: str) -> None:
 @main.command("sync")
 @click.argument("directory", default=".")
 def sync(directory: str) -> None:
-    """Re-fetch sources from ``.skillet/config/sources.json`` and refresh native skill directory mirrors."""
+    """Read sources from `.skillet/config/sources.json` and sync."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
     has_sources = sources_json_path(project_dir).exists() and load_sources(project_dir)
@@ -278,7 +278,7 @@ def sync(directory: str) -> None:
 @main.command("list")
 @click.argument("directory", default=".")
 def list_cmd(directory: str) -> None:
-    """List installed skills under ``.skillet/skills/``."""
+    """List all materialized skills."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
@@ -308,7 +308,7 @@ def list_cmd(directory: str) -> None:
 @click.argument("term")
 @click.argument("directory", default=".")
 def search_cmd(term: str, directory: str) -> None:
-    """Search installed skills by name or description."""
+    """Search all skills by name or description."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
