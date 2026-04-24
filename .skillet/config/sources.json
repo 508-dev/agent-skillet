@@ -7,6 +7,10 @@
     "kind": "github",
     "spec": "github/awesome-copilot/pytest-coverage"
   },
+  "python-design-patterns": {
+    "kind": "github",
+    "spec": "wshobson/agents/python-design-patterns@main"
+  },
   "skill-creator": {
     "kind": "github",
     "spec": "anthropics/skills/skill-creator"

@@ -21,6 +21,13 @@
         ".agents/skills/pytest-coverage/SKILL.md",
         ".cursor/skills/pytest-coverage/SKILL.md"
       ]
+    },
+    "python-design-patterns": {
+      "origin": "github:wshobson/agents/python-design-patterns@main",
+      "mirrors": [
+        ".agents/skills/python-design-patterns/SKILL.md",
+        ".cursor/skills/python-design-patterns/SKILL.md"
+      ]
     }
   }
 }
