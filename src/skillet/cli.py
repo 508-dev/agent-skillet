@@ -116,24 +116,24 @@ def _materialize_summary_lines(
 @click.version_option(__version__)
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """Skillet — install and sync agent skills into your repo"""
+    """Skillet — initialize and sync agent skills into your repo"""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
 
-@main.command("install")
+@main.command("init")
 @click.argument("directory", default=".")
 @click.option(
     "--skip-config",
     is_flag=True,
     help="Skip agent target prompt and native skill directory mirroring",
 )
-def install(directory: str, skip_config: bool) -> None:
+def init_cmd(directory: str, skip_config: bool) -> None:
     """Set up ``.skillet/skills/``, sync sources, prompt for agent targets once, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
-    click.echo(f"\nInstalling Skillet to: {project_dir}")
+    click.echo(f"\nInitializing Skillet in: {project_dir}")
 
     get_project_config_dir(project_dir).mkdir(parents=True, exist_ok=True)
     proj_cfg = load_project_config(project_dir)
@@ -167,7 +167,7 @@ def install(directory: str, skip_config: bool) -> None:
         for name, _path in written.items():
             click.echo(f"  ✓ {name} mirrored")
 
-    click.echo("\n✓ Installation complete!")
+    click.echo("\n✓ Init complete!")
 
 
 @main.command("add")
@@ -253,7 +253,7 @@ def sync(directory: str) -> None:
     has_sources = sources_json_path(project_dir).exists() and load_sources(project_dir)
 
     if not project_skills.exists() and not has_sources:
-        click.echo("No skills installed. Run 'skillet install' first.")
+        click.echo("No skills installed. Run 'skillet init' first.")
         return
 
     project_skills.mkdir(parents=True, exist_ok=True)
@@ -283,7 +283,7 @@ def list_cmd(directory: str) -> None:
     project_skills = get_project_skills_dir(project_dir)
 
     if not project_skills.exists():
-        click.echo("No skills installed. Run 'skillet install' first.")
+        click.echo("No skills installed. Run 'skillet init' first.")
         return
 
     skills = get_skills_from_directory(project_skills)
@@ -313,7 +313,7 @@ def search_cmd(term: str, directory: str) -> None:
     project_skills = get_project_skills_dir(project_dir)
 
     if not project_skills.exists():
-        click.echo("No skills installed. Run 'skillet install' first.")
+        click.echo("No skills installed. Run 'skillet init' first.")
         return
 
     skills = get_skills_from_directory(project_skills)

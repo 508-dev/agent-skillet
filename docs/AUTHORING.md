@@ -29,7 +29,7 @@ description: When editing payment code, follow these invariants.
 
 ## Where skills live
 
-- **Skills** defaults live in this repository at `skills/` and are copied to `.skillet/skills/` on `skillet install`.
+- **Skills** defaults live in this repository at `skills/` and are copied to `.skillet/skills/` on `skillet init`.
 - **Repo-owned** skills live anywhere in your tree (e.g. `./team-skills/checkout-flow/`). Register them with:
 
   ```bash
@@ -40,7 +40,7 @@ description: When editing payment code, follow these invariants.
 
 ## Install source selection (`.skillet/config/sources.json`)
 
-`skillet install` and `skillet sync` read `.skillet/config/sources.json` as the single source of truth.
+`skillet init` and `skillet sync` read `.skillet/config/sources.json` as the single source of truth.
 
 - `kind: "local"` with `"source": "<name>"` resolves to `./skills/<name>/`
 - `kind: "local"` with `"path": "<dir>"` resolves directly to that directory
@@ -59,7 +59,7 @@ Example: install only local `git-os` (exclude other repo skills):
 
 ## Where agents load skills (native paths)
 
-On `skillet install`, `skillet sync`, and `skillet add`, Skillet **mirrors** each materialized skill from `.skillet/skills/<name>/` into the enabled agents’ native trees (one `SKILL.md` per skill folder):
+On `skillet init`, `skillet sync`, and `skillet add`, Skillet **mirrors** each materialized skill from `.skillet/skills/<name>/` into the enabled agents’ native trees (one `SKILL.md` per skill folder):
 
 | Agent (`agent` key) | Project path |
 |--------|----------------|

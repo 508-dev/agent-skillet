@@ -70,9 +70,9 @@ main() {
   info "Syncing a project-local .venv under ${ROOT}/.venv (nothing is installed globally)."
   uv sync --all-groups
 
-  info "Running «skillet install» in: $(pwd)"
+  info "Running «skillet init» in: $(pwd)"
   info "This copies bundled skills into .skillet/skills/, applies .skillet/config/sources.json, and regenerates native agent skill mirrors for this directory."
-  uv run skillet install "$@"
+  uv run skillet init "$@"
 }
 
 main "$@"

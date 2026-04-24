@@ -31,11 +31,11 @@ def _ensure_all_native_targets(project_dir: Path) -> None:
     )
 
 
-def test_install_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> None:
+def test_init_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     runner = CliRunner()
-    result = runner.invoke(main, ["install", str(tmp_path)])
+    result = runner.invoke(main, ["init", str(tmp_path)])
     assert result.exit_code == 0, result.output
 
     cfg_path = tmp_path / ".skillet" / "config" / "config.json"
@@ -51,7 +51,7 @@ def test_install_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -
     assert sources["git-os"] == {"kind": "local", "source": "git-os"}
 
 
-def test_install_uses_sources_json_as_single_source_of_truth(
+def test_init_uses_sources_json_as_single_source_of_truth(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -67,21 +67,21 @@ def test_install_uses_sources_json_as_single_source_of_truth(
     )
 
     runner = CliRunner()
-    result = runner.invoke(main, ["install", "--skip-config", str(tmp_path)])
+    result = runner.invoke(main, ["init", "--skip-config", str(tmp_path)])
     assert result.exit_code == 0, result.output
 
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "extra-skill" / "SKILL.md").is_file()
 
 
-def test_install_removed_flags_raise_usage_error() -> None:
+def test_init_removed_flags_raise_usage_error() -> None:
     runner = CliRunner()
-    for args in (["install", "--all"], ["install", "--with-hooks"]):
+    for args in (["init", "--all"], ["init", "--with-hooks"]):
         r = runner.invoke(main, args)
         assert r.exit_code != 0
 
 
-def test_install_mirrors_native_skill_directories(
+def test_init_mirrors_native_skill_directories(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -91,7 +91,7 @@ def test_install_mirrors_native_skill_directories(
         _ensure_all_native_targets,
     )
     runner = CliRunner()
-    result = runner.invoke(main, ["install", str(tmp_path)])
+    result = runner.invoke(main, ["init", str(tmp_path)])
     assert result.exit_code == 0, result.output
 
     for name in ("git-os", "sprint", "deploy-checklist"):
@@ -112,7 +112,7 @@ def test_sync_restores_native_mirrors_from_sources_json(
         _ensure_all_native_targets,
     )
     runner = CliRunner()
-    assert runner.invoke(main, ["install", str(tmp_path)]).exit_code == 0
+    assert runner.invoke(main, ["init", str(tmp_path)]).exit_code == 0
 
     shutil.rmtree(tmp_path / ".skillet" / "skills" / "git-os")
     r = runner.invoke(main, ["sync", str(tmp_path)])
@@ -133,7 +133,7 @@ def test_remove_prunes_skill_from_all_native_trees(
         _ensure_all_native_targets,
     )
     runner = CliRunner()
-    assert runner.invoke(main, ["install", str(tmp_path)]).exit_code == 0
+    assert runner.invoke(main, ["init", str(tmp_path)]).exit_code == 0
 
     r = runner.invoke(main, ["remove", "git-os", str(tmp_path)])
     assert r.exit_code == 0, r.output
@@ -152,7 +152,7 @@ def test_sync_strips_legacy_skillet_files(
         _ensure_all_native_targets,
     )
     runner = CliRunner()
-    assert runner.invoke(main, ["install", str(tmp_path)]).exit_code == 0
+    assert runner.invoke(main, ["init", str(tmp_path)]).exit_code == 0
 
     rules = tmp_path / ".cursor" / "rules"
     rules.mkdir(parents=True, exist_ok=True)
@@ -169,7 +169,7 @@ def test_add_local_skill_mirrors_to_native_directories(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     runner = CliRunner()
-    assert runner.invoke(main, ["install", "--skip-config", str(tmp_path)]).exit_code == 0
+    assert runner.invoke(main, ["init", "--skip-config", str(tmp_path)]).exit_code == 0
     _ensure_all_native_targets(tmp_path)
     assert runner.invoke(main, ["sync", str(tmp_path)]).exit_code == 0
 
