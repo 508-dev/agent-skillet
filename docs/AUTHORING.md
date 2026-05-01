@@ -44,7 +44,7 @@ description: When editing payment code, follow these invariants.
 
 - `kind: "local"` with `"source": "<name>"` resolves to `./skills/<name>/`
 - `kind: "local"` with `"path": "<dir>"` resolves directly to that directory
-- `kind: "github"` uses the same spec format as `skillet add`
+- `kind: "github"` with `"source": "<owner/repo/subpath[@ref]>"` — same format as `skillet add`
 
 Example: install only local `git-os` (exclude other repo skills):
 

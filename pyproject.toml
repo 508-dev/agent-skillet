@@ -1,5 +1,5 @@
 [project]
-name = "skillet"
+name = "agent-skillet"
 version = "0.1.0"
 description = "AI agent skills for developer workflows — git discipline, PR automation, and skill management."
 readme = "README.md"
@@ -45,6 +45,7 @@ where = ["src"]
 [tool.ruff]
 target-version = "py312"
 line-length = 88
+exclude = [".skillet"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

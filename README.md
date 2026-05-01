@@ -1,65 +1,63 @@
-# Skillet
+# Agent Skillet
 
-Prepare and serve agent skills into your repo — for any workflow and any project.
+[![CI](https://github.com/508-dev/agent-skillet/actions/workflows/ci.yml/badge.svg)](https://github.com/508-dev/agent-skillet/actions/workflows/ci.yml)
 
-## Installation
+Prepare and serve agent skills!
 
-From a clone (editable install):
+Agent Skillet helps teams install, version, and sync agent skills inside a repository.
+
+## Install
+
+### From PyPI (recommended)
+
+```bash
+uvx agent-skillet init
+uv tool install agent-skillet
+```
+
+### From source (development)
 
 ```bash
 uv pip install -e .
 ```
 
-Without already having `uv`, from the repository root:
+If you do not already have `uv`, run:
 
 ```bash
 zsh install.sh
 ```
 
-That script can bootstrap a pinned [uv](https://github.com/astral-sh/uv) installer (with checksum + consent prompt), run `uv sync`, then `uv run skillet init` in the current directory. When Skillet is published to an index, `uv tool install skillet` will be the one-liner for end users.
-
 ## Quick Start
 
-```bash
-# Init: materialize from .skillet/config/sources.json (bootstraps defaults on first run); prompts once for agent targets
-skillet init
+```text
+Usage: skillet [OPTIONS] COMMAND [ARGS]...
 
-skillet list
-skillet search "git"
+  Skillet — initialize and sync agent skills into your repo
 
-# Global defaults: agent targets + optional GitHub token for private `skillet add`
-skillet config
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
 
-skillet sync
+Commands:
+  add     Add skills from a local skills directory or GitHub.
+  config  Global defaults: agent targets and optional GitHub token for...
+  init    Initialize Skillet in a directory, sync sources, mirror native...
+  list    List all materialized skills.
+  remove  Remove an installed skill.
+  search  Search all skills by name or description.
+  sync    Read sources from `.skillet/config/sources.json` and sync.
 ```
 
-Alternatively:
+## How It Works
 
-```bash
-uv run skillet init
-```
+- Tracks installed skill sources in `.skillet/config/sources.json`.
+- Materializes installed skills into `.skillet/skills/<name>/SKILL.md`.
+- Mirrors enabled skills into agent-native directories (for example `.cursor/skills/` and `.claude/skills/`).
+- Supports local sources and GitHub specs (`owner/repo`, `owner/repo/subpath`, `owner/repo/subpath@ref`).
 
-## Features
+### Example `sources.json`
 
-- **Skills**: [skills.sh](https://skills.sh/)-style GitHub specs (`owner/repo`, `owner/repo/path@ref`) plus local directories; tracked in `.skillet/config/sources.json`.
-- **Native skill directories**: for each **enabled** agent target, Skillet copies each installed skill to that agent’s standard skills path — see [Where skills are discovered](#where-skills-are-discovered) below. Skillet does **not** generate `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or a Skillet Cursor rules file. On `init` / `sync` / `add`, it deletes **known** legacy Skillet outputs if they still exist (for example `.cursor/rules/skillet.mdc` and `.github/copilot-instructions.md`).
-- **Docs**: [Authoring skills](docs/AUTHORING.md).
-
-## Bundled Skills
-
-| Skill | Description |
-|-------|-------------|
-| `git-os` | Conventional commits, atomic changes, pre-push checklist |
-| `sprint` | Ticket-to-PR automation with branch and description templates |
-| `deploy-checklist` | Pre/post deployment verification checklist |
-
-## Configuration
-
-Run `skillet config` to set up:
-- Default agent targets for new projects
-- Optional GitHub token (private repos and API rate limits when using `skillet add` with GitHub sources)
-
-Project-level install sources live in `.skillet/config/sources.json`:
+Each entry maps a skill name to its source. The `kind` field is either `"local"` or `"github"`.
 
 ```json
 {
@@ -67,104 +65,78 @@ Project-level install sources live in `.skillet/config/sources.json`:
     "kind": "local",
     "source": "git-os"
   },
+  "python-design-patterns": {
+    "kind": "github",
+    "source": "wshobson/agents/python-design-patterns@main"
+  },
   "skill-creator": {
     "kind": "github",
-    "spec": "anthropics/skills/skill-creator"
+    "source": "anthropics/skills/skill-creator"
   }
 }
 ```
 
-`.skillet/config/sources.json` is the single source of truth for install/sync source resolution.
+`skillet add` writes these entries for you — you rarely need to edit the file directly.
 
-- `kind: "local"` with `"source": "<name>"` resolves to `./skills/<name>/`
-- `kind: "local"` with `"path": "<relative-or-absolute-dir>"` also works
-- `kind: "github"` uses the same specs as `skillet add`
-
-Example: install only local `git-os` (and not other repo skills):
-
-```json
-{
-  "git-os": {
-    "kind": "local",
-    "source": "git-os"
-  }
-}
-```
-
-## Practical examples
-
-Skillet is **project-local**: everything that defines “how we work here” lives in the repo (plus each developer’s optional global `~/.config/skillet/config.json` from `skillet config`). Whether you call that unit a **team**, **squad**, **client**, or **company** does not matter — you check the same paths into git, and every greenfield or brownfield repo can repeat the pattern.
-
-### What you edit vs what Skillet generates
-
-| Role | Path | Notes |
-|------|------|--------|
-| **Skill you maintain** | e.g. `./team-skills/react-frontend/SKILL.md` | Source of truth: frontmatter (`name`, `description`, …) plus instructions for agents. |
-| **Source tracking** | `.skillet/config/sources.json` | Updated when you run `skillet add …`. Lists each installed skill and where it comes from (local path or GitHub spec). |
-| **Materialized skills** | `.skillet/skills/<name>/SKILL.md` | Produced by `skillet init` / `skillet sync` / `skillet add`. Treat as output; change the source skill and re-sync. |
-| **Native skill mirrors** | See [Where skills are discovered](#where-skills-are-discovered) | One folder per skill (`<name>/SKILL.md`) under each *enabled* agent’s path. Stale skills are pruned when you `skillet remove`, delete a skill from `sources.json` and run `skillet sync`, or disable an agent. Regenerated by `init` / `sync` / `add`. |
-| **Per-machine defaults** | `~/.config/skillet/config.json` | Default agent targets and optional `github_token` for Skillet’s GitHub fetches. Not committed to the app repo unless you choose to. |
-
-### Where skills are discovered
-
-Skillet is **native-first**: it only materializes skills into each agent’s usual skills directory. There is no generated rules file or “index” markdown at the repo root for Skillet.
-
-| Agent target (`agent` key) | Emitted path (when target is on) |
-|------------------------------------|-------------------------------------|
-| `claude` | `.claude/skills/<name>/SKILL.md` |
-| `cursor` | `.cursor/skills/<name>/SKILL.md` |
-| `opencode`, `antigravity`, `cline`, `codex`, `copilot`, `kimi`, … | `.agents/skills/<name>/SKILL.md` |
-| `qwen` | `.qwen/skills/<name>/SKILL.md` |
-| `gemini` | *(none — reserved; enable another `.agents/skills/` agent such as `opencode` if you want that tree.)* |
-
-Enabling or disabling an agent only adds or removes that agent’s mirror roots; the others are unchanged. Older installs may still use `ide_support` or `agent_support` in JSON; Skillet reads those but rewrites saves as `agent`.
-
-### Example: “good starting point” for a React frontend (greenfield)
-
-Goal: any agent or new human in this repo immediately knows your stack (Vite + TypeScript + testing library), folder layout, and review bar.
-
-1. **Create the app repo** (or open an empty monorepo folder you own).
-2. **Run Skillet once** from the repo root:
-   ```bash
-   skillet init
-   ```
-   On first use, run `skillet config` on each machine if you want non-default agent targets or a `GITHUB_TOKEN` for private `skillet add` sources.
-3. **Add a repo-owned skill** that encodes your React baseline — for example `./team-skills/react-frontend/SKILL.md` describing conventions, file layout, state/data rules, and “definition of done” for UI work.
-4. **Register and materialize it**:
-   ```bash
-   skillet add ./team-skills/react-frontend
-   ```
-   That appends a `local` entry to `.skillet/config/sources.json`, copies the skill under `.skillet/skills/`, and refreshes the native skill directories for your enabled agents (see [Where skills are discovered](#where-skills-are-discovered)).
-5. **Commit to git** (typical set): `team-skills/` (or your chosen tree), `.skillet/config/sources.json`, `.skillet/skills/`, and the native skill paths under `.claude/`, `.cursor/`, and/or `.agents/` that your team agreed to track.
-
-Optional: pull in a shared skill from GitHub the same way you would from skills.sh-style repos:
+## Common Commands
 
 ```bash
-skillet add some-org/shared-frontend-patterns
+# Install bundled skills and set up agent mirrors
+skillet init
+
+# Add a local skill directory (must contain SKILL.md)
+skillet add ./team-skills/checkout-flow
+
+# Add a single skill from a GitHub repo  (owner/repo/subpath)
+skillet add anthropics/skills/skill-creator
+
+# Add all skills from a GitHub repo  (owner/repo)
+skillet add wshobson/agents
+
+# Pin to a specific branch or tag  (owner/repo/subpath@ref)
+skillet add wshobson/agents/python-design-patterns@main
+
+# Re-sync all sources after editing sources.json
+skillet sync
+
+# List installed skills
+skillet list
+
+# Remove a skill
+skillet remove skill-creator
 ```
 
-Then run `skillet sync` whenever `sources.json` or upstream skills change.
+> **Tip:** `skillet.lock` records origins with a `github:` prefix
+> (e.g. `github:anthropics/skills/skill-creator`). `skillet add` accepts
+> both forms, so you can copy-paste a lock origin directly as a spec.
 
-### Example: brownfield React project
+## Bundled Skills
 
-Same flow, but the skill text documents **what already exists** (legacy Redux island, path aliases, Storybook version, “do not migrate X yet”). Point `skillet add` at either:
+- `git-os`: Conventional commits, atomic changes, and GIT-OS workflow
+- `sprint`: Ticket-to-PR automation with branch and description templates
+- `deploy-checklist`: Pre/post deployment verification checklist
 
-- a **local** directory under the repo (`./docs/agent-skills/react-legacy`), or  
-- a **GitHub** repo your platform team maintains for “client Acme” or “squad B”.
+## Documentation
 
-Brownfield teams often keep a **small set of skills** (React baseline, API layer, release process) instead of one giant file.
+- [Authoring skills](docs/AUTHORING.md)
+- [Releasing](docs/RELEASE.md)
 
-### Onboarding a developer (or a new laptop)
+## Contributing
 
-1. **Clone** the project and install dependencies as usual (`npm install`, `pnpm install`, …).
-2. **Optional:** `skillet config` — set agent preferences and `GITHUB_TOKEN` if private sources are used.
-3. **Refresh materialized skills and native mirrors** after pulling changes:
-   ```bash
-   skillet sync
-   ```
-4. **Open the repo** in your editor or agent — enabled agents get updated copies under `.claude/skills/`, `.cursor/skills/`, `.agents/skills/`, `.qwen/skills/`, etc. (see `skillet config` / project `agent`).
+Contributions are welcome and encouraged.
 
-No separate “Skillet server” or per-squad database is required: the repo **is** the contract. Different clients or squads use different repos (or branches) with their own skill trees and `.skillet/` content.
+- Open an issue first for bug reports, feature requests, or design discussion.
+- Keep pull requests focused and small; include clear context in the description.
+- Add or update tests when behavior changes.
+- Run local checks before opening a PR:
+
+```bash
+uv sync
+ruff check
+pytest
+```
+
+- Be respectful and collaborative in reviews so we can keep the project healthy and active!
 
 ## License
 

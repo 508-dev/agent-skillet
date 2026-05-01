@@ -34,7 +34,6 @@ AGENT_LABELS: dict[str, str] = {
 
 # Project-relative roots where Skillet mirrors each skill as ``<name>/SKILL.md``.
 # Paths follow agentskills / Vercel agent layout conventions (project scope).
-# ``gemini`` is reserved for future use; mirror ``.agents/skills/`` via ``opencode`` or another target.
 AGENT_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
     "claude": ".claude/skills",
     "cursor": ".cursor/skills",
@@ -47,16 +46,6 @@ AGENT_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
     "kimi": ".agents/skills",
     "qwen": ".qwen/skills",
 }
-
-
-def agent_native_skill_rel_path(agent_key: str) -> str | None:
-    """Return the mirrored skills directory for ``agent_key``, or ``None`` if there is none."""
-    return AGENT_NATIVE_SKILL_REL_PATH.get(agent_key)
-
-
-def agent_emits_native_skill_mirror(agent_key: str) -> bool:
-    """Whether Skillet mirrors skills into a native per-agent directory for this target."""
-    return agent_native_skill_rel_path(agent_key) is not None
 
 
 def agent_multiselect_choice_label(agent_key: str) -> str:

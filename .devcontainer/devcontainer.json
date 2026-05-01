@@ -1,5 +1,5 @@
 {
-  "name": "Skillet",
+  "name": "Agent Skillet",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."

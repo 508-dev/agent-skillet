@@ -16,9 +16,12 @@ def test_format_agent_target_mapping_summary_orders_and_groups_shared_agents_pat
     text = format_agent_target_mapping_summary(["gemini", "cursor", "claude"])
     assert ".cursor/skills/" in text
     assert ".claude/skills/" in text
-    assert ".agents/skills/" not in text
+    assert ".agents/skills/" in text
+    assert "Gemini CLI" in text
     assert "OpenCode" not in text
-    assert text.find(".cursor/skills") > text.find(".claude/skills")
+    assert text.find(".claude/skills") < text.find(".cursor/skills") < text.find(
+        ".agents/skills"
+    )
     assert "Native skill directories for enabled agents:" in text
 
     both = format_agent_target_mapping_summary(["gemini", "opencode"])

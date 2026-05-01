@@ -1,4 +1,4 @@
-"""Project-local `.skillet/config/sources.json`: installed skill name -> source spec."""
+"""Project-local `.skillet/config/sources.json`: installed skill name -> source entry."""
 
 from __future__ import annotations
 
@@ -59,9 +59,9 @@ def save_sources(project_dir: Path, sources: dict[str, dict[str, Any]]) -> None:
     _legacy_sources_json_path(project_dir).unlink(missing_ok=True)
 
 
-def upsert_source(project_dir: Path, skill_name: str, spec: dict[str, Any]) -> None:
+def upsert_source(project_dir: Path, skill_name: str, entry: dict[str, Any]) -> None:
     sources = load_sources(project_dir)
-    sources[skill_name] = dict(spec)
+    sources[skill_name] = dict(entry)
     save_sources(project_dir, sources)
 
 

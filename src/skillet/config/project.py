@@ -6,11 +6,9 @@ native skills directory (project-relative). Exact roots are
 
 - ``claude`` → ``.claude/skills/<skill>/SKILL.md``
 - ``cursor`` → ``.cursor/skills/<skill>/SKILL.md``
-- ``opencode``, ``antigravity``, ``cline``, ``codex``, ``copilot``, ``kimi`` → shared
+- ``gemini``, ``opencode``, ``antigravity``, ``cline``, ``codex``, ``copilot``, ``kimi`` → shared
   ``.agents/skills/<skill>/SKILL.md``
 - ``qwen`` → ``.qwen/skills/<skill>/SKILL.md``
-
-The ``gemini`` key does not mirror files yet (see ``AGENT_NATIVE_SKILL_REL_PATH``).
 
 Toggling targets affects only those roots; ``.agents/skills/`` is removed when no
 enabled target maps to it.

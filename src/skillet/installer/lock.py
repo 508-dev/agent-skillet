@@ -85,6 +85,17 @@ def record_skill(
     save_lock(project_dir, lock)
 
 
+def existing_mirrors(project_dir: Path, skill_name: str) -> list[str]:
+    """Return the current non-empty mirror paths for a managed skill from the lock."""
+    entry = load_lock(project_dir).get("skills", {}).get(skill_name, {})
+    if not isinstance(entry, dict):
+        return []
+    mirrors = entry.get("mirrors")
+    if not isinstance(mirrors, list):
+        return []
+    return [m for m in mirrors if isinstance(m, str) and m.strip()]
+
+
 def unrecord_skill(project_dir: Path, skill_name: str) -> list[Path]:
     """Remove one lock entry and delete any mirrored files/directories it listed."""
     lock = load_lock(project_dir)

@@ -64,7 +64,7 @@ def test_copy_emit_remove_prunes_all_native_mirrors(tmp_path: Path) -> None:
     from skillet.cli import get_skills_dir
 
     project_skills = tmp_path / ".skillet" / "skills"
-    count = copy_all_skills(get_skills_dir(), project_skills)
+    count = copy_all_skills(get_skills_dir(), project_skills, project_dir=tmp_path)
     assert count >= 1
 
     flags = {"claude": True, "cursor": True, "opencode": True}

@@ -1,4 +1,4 @@
-"""Add skills from local or GitHub specs (shared by CLI add flows)."""
+"""Add skills from local or GitHub sources (shared by CLI add flows)."""
 
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ from skillet.sources.github import (
 from skillet.sources.store import load_sources
 
 
-def _parse_local_add_spec(spec: str, project_dir: Path) -> tuple[str, dict] | None:
-    raw = Path(spec).expanduser()
+def _parse_local_add_source(source: str, project_dir: Path) -> tuple[str, dict] | None:
+    raw = Path(source).expanduser()
     candidates: list[Path] = []
     if raw.is_absolute():
         candidates.append(raw.resolve())
@@ -62,7 +62,7 @@ def _github_skill_sources(
     dirs: list[Path],
     base: GitHubSourceSpec,
 ) -> list[tuple[str, dict[str, str]]]:
-    """Map resolved github skill dirs to ``(name, source_spec)`` pairs."""
+    """Map resolved GitHub skill dirs to ``(name, source_entry)`` pairs."""
     repo_root = _repo_root_for_dirs(dirs)
     results: list[tuple[str, dict[str, str]]] = []
     for d in dirs:
@@ -80,19 +80,20 @@ def _github_skill_sources(
                 skill_subpath=sub,
             )
         )
-        results.append((name, {"kind": "github", "spec": per}))
+        results.append((name, {"kind": "github", "source": per}))
     return results
 
 
-def add_specs(
+def add_sources(
     project_dir: Path,
-    specs: list[str],
+    sources: list[str],
     *,
     skip_existing: bool = True,
     github_token: str | None = None,
 ) -> tuple[int, list[str]]:
     """
-    For each spec, append entries to ``.skillet/config/sources.json`` (same semantics as ``skillet add``).
+    For each source string, append entries to ``.skillet/config/sources.json``
+    (same semantics as ``skillet add``).
 
     Does **not** run ``apply_all_sources`` or native skill mirrors — call
     :func:`apply_sources_and_emit` afterward.
@@ -109,22 +110,22 @@ def add_specs(
         skill_file = project_skills / skill_name / "SKILL.md"
         return skill_file.exists() and not is_managed(project_dir, skill_name)
 
-    for spec in specs:
-        s = spec.strip()
+    for raw in sources:
+        s = raw.strip()
         if not s:
             continue
 
-        parsed = _parse_local_add_spec(s, project_dir)
+        parsed = _parse_local_add_source(s, project_dir)
         if parsed is not None:
-            name, source_spec = parsed
+            name, source_entry = parsed
             if _unmanaged_collision(name):
                 errors.append(f"{name}: skill already exists (not managed by Skillet), skipping")
                 continue
             if skip_existing and name in existing:
                 continue
-            upsert_source(project_dir, name, source_spec)
+            upsert_source(project_dir, name, source_entry)
             tracked += 1
-            existing[name] = source_spec
+            existing[name] = source_entry
             continue
 
         if looks_like_local_source_spec(s):
@@ -148,15 +149,15 @@ def add_specs(
             errors.append(f"{s}: no skills found")
             continue
 
-        for name, source_spec in _github_skill_sources(dirs=dirs, base=base):
+        for name, source_entry in _github_skill_sources(dirs=dirs, base=base):
             if _unmanaged_collision(name):
                 errors.append(f"{name}: skill already exists (not managed by Skillet), skipping")
                 continue
             if skip_existing and name in existing:
                 continue
-            upsert_source(project_dir, name, source_spec)
+            upsert_source(project_dir, name, source_entry)
             tracked += 1
-            existing[name] = source_spec
+            existing[name] = source_entry
 
     return tracked, errors
 

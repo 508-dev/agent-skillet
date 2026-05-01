@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import click
 import questionary
 
 from skillet.config.settings import (
@@ -90,7 +91,7 @@ def run_config_wizard() -> None:
 
 
 def _print_config_wizard_footer(config: dict) -> None:
-    print("\n✓ Configuration saved to ~/.config/skillet/config.json")
+    click.echo("\n✓ Configuration saved to ~/.config/skillet/config.json")
 
     agents = config.get("agent")
     if isinstance(agents, list) and agents:
@@ -98,17 +99,17 @@ def _print_config_wizard_footer(config: dict) -> None:
             [k for k in agents if k in AGENT_LABELS]
         )
         if summary:
-            print(f"\n{summary}")
+            click.echo(f"\n{summary}")
 
-    print(
+    click.echo(
         "\nSkillet reads `GITHUB_TOKEN` from the environment or this file when "
         "fetching GitHub skill sources. Set it in `.env` or your shell if you prefer."
     )
-    print("  GITHUB_TOKEN — optional")
+    click.echo("  GITHUB_TOKEN — optional")
 
     if (config.get("github_token") or "").strip():
-        print(
+        click.echo(
             "\nA token was saved in ~/.config/skillet/config.json. "
         )
     else:
-        print("\nNo GitHub token was entered; add one when you use private `skillet add` sources.")
+        click.echo("\nNo GitHub token was entered; add one when you use private `skillet add` sources.")
