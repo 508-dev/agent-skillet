@@ -34,7 +34,6 @@ AGENT_LABELS: dict[str, str] = {
 
 # Project-relative roots where Skillet mirrors each skill as ``<name>/SKILL.md``.
 # Paths follow agentskills / Vercel agent layout conventions (project scope).
-# ``gemini`` is reserved for future use; mirror ``.agents/skills/`` via ``opencode`` or another target.
 AGENT_NATIVE_SKILL_REL_PATH: dict[str, str | None] = {
     "claude": ".claude/skills",
     "cursor": ".cursor/skills",
