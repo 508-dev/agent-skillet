@@ -90,6 +90,7 @@ skillet sync
 ## Documentation
 
 - [Authoring skills](docs/AUTHORING.md)
+- [Releasing](docs/RELEASE.md)
 
 ## Contributing
 
