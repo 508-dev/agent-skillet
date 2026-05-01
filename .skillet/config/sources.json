@@ -5,14 +5,14 @@
   },
   "pytest-coverage": {
     "kind": "github",
-    "spec": "github/awesome-copilot/pytest-coverage"
+    "source": "github/awesome-copilot/pytest-coverage"
   },
   "python-design-patterns": {
     "kind": "github",
-    "spec": "wshobson/agents/python-design-patterns@main"
+    "source": "wshobson/agents/python-design-patterns@main"
   },
   "skill-creator": {
     "kind": "github",
-    "spec": "anthropics/skills/skill-creator"
+    "source": "anthropics/skills/skill-creator"
   }
 }

@@ -21,7 +21,7 @@ from skillet.installer.lock import is_managed, load_lock, record_skill, unrecord
 from skillet.skills.parser import parse_skill_file
 from skillet.skills.parser import get_skills_from_directory
 from skillet.skills.search import search_skills
-from skillet.operations.add_specs import add_specs, apply_sources_and_emit
+from skillet.operations.add_sources import add_sources, apply_sources_and_emit
 from skillet.sources import (
     MaterializeSummary,
     apply_all_sources,
@@ -116,20 +116,20 @@ def _print_tracked_sources_count(tracked: int) -> None:
     click.echo(f"✓ Tracked {tracked} skill(s) in .skillet/config/sources.json")
 
 
-def _origin_from_source_spec(spec: dict) -> str:
-    kind = str(spec.get("kind", "")).strip()
+def _origin_from_source_entry(entry: dict) -> str:
+    kind = str(entry.get("kind", "")).strip()
     if kind == "github":
-        return f"github:{str(spec.get('spec', '')).strip()}"
+        return f"github:{str(entry.get('source', '')).strip()}"
     if kind == "local":
-        path = str(spec.get("path", "")).strip()
+        path = str(entry.get("path", "")).strip()
         if path:
             return f"local:{path}"
-        source = str(spec.get("source", "")).strip()
+        source = str(entry.get("source", "")).strip()
         if source:
             return f"local:skills/{source}"
         return "local"
     if kind == "http_zip":
-        return f"http_zip:{str(spec.get('url', '')).strip()}"
+        return f"http_zip:{str(entry.get('url', '')).strip()}"
     return kind or "unknown"
 
 
@@ -137,14 +137,14 @@ def _record_applied_skills(project_dir: Path, summary: MaterializeSummary) -> No
     lock = load_lock(project_dir)
     sources = load_sources(project_dir)
     for name in (set(summary.added) | set(summary.unchanged)):
-        spec = sources.get(name)
-        if not isinstance(spec, dict):
+        source_entry = sources.get(name)
+        if not isinstance(source_entry, dict):
             continue
         mirrors: list[str] = []
-        entry = lock.get("skills", {}).get(name, {})
-        if isinstance(entry, dict) and isinstance(entry.get("mirrors"), list):
-            mirrors = [m for m in entry["mirrors"] if isinstance(m, str) and m.strip()]
-        record_skill(project_dir, name, origin=_origin_from_source_spec(spec), mirrors=mirrors)
+        lock_entry = lock.get("skills", {}).get(name, {})
+        if isinstance(lock_entry, dict) and isinstance(lock_entry.get("mirrors"), list):
+            mirrors = [m for m in lock_entry["mirrors"] if isinstance(m, str) and m.strip()]
+        record_skill(project_dir, name, origin=_origin_from_source_entry(source_entry), mirrors=mirrors)
 
 
 def _materialize_summary_lines(
@@ -247,7 +247,7 @@ def add(spec: str, directory: str) -> None:
     _ensure_project_skills_dir(project_dir)
     token = _github_token()
 
-    tracked, pre_errors = add_specs(
+    tracked, pre_errors = add_sources(
         project_dir,
         [spec],
         skip_existing=False,

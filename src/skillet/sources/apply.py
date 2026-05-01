@@ -59,19 +59,19 @@ def _download_http_zip(url: str, dest_dir: Path) -> None:
         raise RuntimeError(f"Failed to download zip: {e}") from e
 
 
-def _apply_local_spec(
+def _apply_local_source(
     project_dir: Path,
     skills_dest: Path,
     skill_name: str,
-    spec: dict[str, Any],
+    entry: dict[str, Any],
     mirrors: list[str],
 ) -> str | None:
-    rel = str(spec.get("path", "")).strip()
-    local_source = str(spec.get("source", "")).strip()
+    rel = str(entry.get("path", "")).strip()
+    local_source = str(entry.get("source", "")).strip()
     if not rel and local_source:
         rel = (Path("skills") / local_source).as_posix()
     if not rel:
-        return "local spec missing path/source"
+        return "local source missing path or source"
     src = (project_dir / rel).resolve()
     if not src.exists():
         return f"local path does not exist: {rel}"
@@ -82,16 +82,16 @@ def _apply_local_spec(
     return None
 
 
-def _apply_http_zip_spec(
+def _apply_http_zip_source(
     project_dir: Path,
     skills_dest: Path,
     skill_name: str,
-    spec: dict[str, Any],
+    entry: dict[str, Any],
     mirrors: list[str],
 ) -> str | None:
-    url = str(spec.get("url", "")).strip()
+    url = str(entry.get("url", "")).strip()
     if not url:
-        return "http_zip spec missing url"
+        return "http_zip source missing url"
     target = skills_dest / skill_name
     if target.exists():
         shutil.rmtree(target)
@@ -103,21 +103,21 @@ def _apply_http_zip_spec(
     return None
 
 
-def _apply_github_spec(
+def _apply_github_source(
     project_dir: Path,
     skills_dest: Path,
     skill_name: str,
-    spec: dict[str, Any],
+    entry: dict[str, Any],
     mirrors: list[str],
     *,
     github_token: str | None,
 ) -> str | None:
-    spec_str = str(spec.get("spec", "") or spec.get("github", "")).strip()
-    if not spec_str:
-        return "github spec missing spec"
+    source_str = str(entry.get("source", "")).strip()
+    if not source_str:
+        return "github source missing"
     try:
-        parsed_spec = parse_github_source_spec(spec_str)
-        dirs, cleanup = fetch_github_skill_directories(parsed_spec, token=github_token)
+        parsed = parse_github_source_spec(source_str)
+        dirs, cleanup = fetch_github_skill_directories(parsed, token=github_token)
     except Exception as e:
         return str(e)
     try:
@@ -135,13 +135,13 @@ def _apply_github_spec(
         return str(e)
     finally:
         cleanup()
-    record_skill(project_dir, skill_name, origin=f"github:{spec_str}", mirrors=mirrors)
+    record_skill(project_dir, skill_name, origin=f"github:{source_str}", mirrors=mirrors)
     return None
 
 
 def _apply_one(
     skill_name: str,
-    spec: dict[str, Any],
+    entry: dict[str, Any],
     project_dir: Path,
     skills_dest: Path,
     *,
@@ -153,17 +153,17 @@ def _apply_one(
 
     mirrors = existing_mirrors(project_dir, skill_name)
 
-    kind = spec.get("kind")
+    kind = entry.get("kind")
     if kind == "local":
-        return _apply_local_spec(project_dir, skills_dest, skill_name, spec, mirrors)
+        return _apply_local_source(project_dir, skills_dest, skill_name, entry, mirrors)
     if kind == "http_zip":
-        return _apply_http_zip_spec(project_dir, skills_dest, skill_name, spec, mirrors)
+        return _apply_http_zip_source(project_dir, skills_dest, skill_name, entry, mirrors)
     if kind == "github":
-        return _apply_github_spec(
+        return _apply_github_source(
             project_dir,
             skills_dest,
             skill_name,
-            spec,
+            entry,
             mirrors,
             github_token=github_token,
         )
@@ -198,10 +198,10 @@ def apply_all_sources(
     existing_before = {p.name for p in skills_dest.iterdir() if p.is_dir()}
     added_names: list[str] = []
     unchanged_names: list[str] = []
-    for name, spec in sources.items():
+    for name, entry in sources.items():
         existed = name in existing_before
         err = _apply_one(
-            name, spec, project_dir, skills_dest, github_token=github_token
+            name, entry, project_dir, skills_dest, github_token=github_token
         )
         if err:
             errors.append(f"{name}: {err}")

@@ -53,9 +53,11 @@ Commands:
 - Tracks installed skill sources in `.skillet/config/sources.json`.
 - Materializes installed skills into `.skillet/skills/<name>/SKILL.md`.
 - Mirrors enabled skills into agent-native directories (for example `.cursor/skills/` and `.claude/skills/`).
-- Supports local sources and GitHub specs (`owner/repo`, `owner/repo/path@ref`).
+- Supports local sources and GitHub specs (`owner/repo`, `owner/repo/subpath`, `owner/repo/subpath@ref`).
 
 ### Example `sources.json`
+
+Each entry maps a skill name to its source. The `kind` field is either `"local"` or `"github"`.
 
 ```json
 {
@@ -63,39 +65,54 @@ Commands:
     "kind": "local",
     "source": "git-os"
   },
+  "python-design-patterns": {
+    "kind": "github",
+    "source": "wshobson/agents/python-design-patterns@main"
+  },
   "skill-creator": {
     "kind": "github",
-    "spec": "anthropics/skills/skill-creator"
+    "source": "anthropics/skills/skill-creator"
   }
 }
 ```
 
+`skillet add` writes these entries for you — you rarely need to edit the file directly.
+
 ## Common Commands
 
 ```bash
-# Add a local skill directory
-skillet add ./team-skills/react-frontend
+# Install bundled skills and set up agent mirrors
+skillet init
 
-# Add a single GitHub skill  (owner/repo/subpath)
+# Add a local skill directory (must contain SKILL.md)
+skillet add ./team-skills/checkout-flow
+
+# Add a single skill from a GitHub repo  (owner/repo/subpath)
 skillet add anthropics/skills/skill-creator
 
 # Add all skills from a GitHub repo  (owner/repo)
-skillet add some-org/shared-frontend-patterns
+skillet add wshobson/agents
 
-# Pin to a specific branch or tag
-skillet add anthropics/skills/skill-creator@main
+# Pin to a specific branch or tag  (owner/repo/subpath@ref)
+skillet add wshobson/agents/python-design-patterns@main
 
-# Re-sync after changing sources
+# Re-sync all sources after editing sources.json
 skillet sync
+
+# List installed skills
+skillet list
+
+# Remove a skill
+skillet remove skill-creator
 ```
 
-> **Note:** `skillet.lock` records origins with a `github:` prefix
-> (e.g. `github:anthropics/skills/skill-creator`). Both forms are
-> accepted by `skillet add`, so you can copy-paste a lock origin directly.
+> **Tip:** `skillet.lock` records origins with a `github:` prefix
+> (e.g. `github:anthropics/skills/skill-creator`). `skillet add` accepts
+> both forms, so you can copy-paste a lock origin directly as a spec.
 
 ## Bundled Skills
 
-- `git-os`: Conventional commits, atomic changes, pre-push checklist
+- `git-os`: Conventional commits, atomic changes, and GIT-OS workflow
 - `sprint`: Ticket-to-PR automation with branch and description templates
 - `deploy-checklist`: Pre/post deployment verification checklist
 

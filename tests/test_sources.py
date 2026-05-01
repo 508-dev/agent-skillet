@@ -73,7 +73,7 @@ def test_apply_github_skill(
     upsert_source(
         tmp_path,
         "gh-skill",
-        {"kind": "github", "spec": "demo/repo"},
+        {"kind": "github", "source": "demo/repo"},
     )
     errors, summary = apply_all_sources(tmp_path, skills_dest, github_token=None)
     assert errors == []
