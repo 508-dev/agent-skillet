@@ -63,17 +63,11 @@ def test_apply_github_skill(
         "---\nname: gh-skill\ndescription: d\n---\n", encoding="utf-8"
     )
 
-    @contextmanager
-    def fake_resolving(*_a, **_k):
-        class R:
-            skill_directories = [skill]
+    def fake_fetch(source, *, token=None, client=None):
+        return [skill], lambda: None
 
-            def close(self) -> None:
-                pass
-
-        yield R()
-
-    monkeypatch.setattr(skillet_sources_mod, "resolving", fake_resolving)
+    import skillet.sources.apply as apply_mod
+    monkeypatch.setattr(apply_mod, "fetch_github_skill_directories", fake_fetch)
 
     skills_dest = tmp_path / ".skillet" / "skills"
     upsert_source(

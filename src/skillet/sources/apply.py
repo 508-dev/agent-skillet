@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import importlib
 from dataclasses import dataclass
 import io
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -13,8 +13,9 @@ from typing import Any
 import httpx
 
 from skillet.installer.copier import copy_skill
-from skillet.installer.lock import is_managed, load_lock, record_skill
+from skillet.installer.lock import existing_mirrors, is_managed, record_skill
 from skillet.skills.parser import parse_skill_file
+from skillet.sources.github import fetch_github_skill_directories, parse_github_source_spec
 from skillet.sources.store import load_sources
 
 
@@ -56,17 +57,6 @@ def _download_http_zip(url: str, dest_dir: Path) -> None:
                 zf.extract(member, dest_dir)
     except Exception as e:
         raise RuntimeError(f"Failed to download zip: {e}") from e
-
-
-def _existing_mirrors(project_dir: Path, skill_name: str) -> list[str]:
-    """Return existing non-empty mirror paths for a managed skill."""
-    existing_entry = load_lock(project_dir).get("skills", {}).get(skill_name, {})
-    mirrors = (
-        existing_entry.get("mirrors")
-        if isinstance(existing_entry, dict) and isinstance(existing_entry.get("mirrors"), list)
-        else []
-    )
-    return [m for m in mirrors if isinstance(m, str) and m.strip()]
 
 
 def _record_skill_with_existing_mirrors(
@@ -135,23 +125,26 @@ def _apply_github_spec(
     spec_str = str(spec.get("spec", "") or spec.get("github", "")).strip()
     if not spec_str:
         return "github spec missing spec"
-    sources_mod = importlib.import_module("skillet.sources")
-    resolving = sources_mod.resolving
     try:
-        with resolving(spec_str, cwd=project_dir, token=github_token) as r:
-            dirs = list(r.skill_directories)
-            if not dirs:
-                return "no SKILL.md directories found in github archive"
-            chosen = _pick_github_skill_dir(dirs, skill_name)
-            if chosen is None:
-                return (
-                    "ambiguous github source (multiple skills); use owner/repo/path "
-                    f"or match directory / frontmatter name to '{skill_name}'"
-                )
-            # Copy before leaving the context; temp extraction is cleaned on exit.
-            copy_skill(chosen, skills_dest / skill_name)
+        parsed_spec = parse_github_source_spec(spec_str)
+        dirs, cleanup = fetch_github_skill_directories(parsed_spec, token=github_token)
     except Exception as e:
         return str(e)
+    try:
+        if not dirs:
+            return "no SKILL.md directories found in github archive"
+        chosen = _pick_github_skill_dir(dirs, skill_name)
+        if chosen is None:
+            return (
+                "ambiguous github source (multiple skills); use owner/repo/path "
+                f"or match directory / frontmatter name to '{skill_name}'"
+            )
+        # Copy before cleanup; temp extraction is removed in finally.
+        copy_skill(chosen, skills_dest / skill_name)
+    except Exception as e:
+        return str(e)
+    finally:
+        cleanup()
     _record_skill_with_existing_mirrors(
         project_dir, skill_name, origin=f"github:{spec_str}", mirrors=mirrors
     )
@@ -170,20 +163,20 @@ def _apply_one(
     if dest.exists() and not is_managed(project_dir, skill_name):
         return "skill already exists (not managed by Skillet), skipping"
 
-    existing_mirrors = _existing_mirrors(project_dir, skill_name)
+    mirrors = existing_mirrors(project_dir, skill_name)
 
     kind = spec.get("kind")
     if kind == "local":
-        return _apply_local_spec(project_dir, skills_dest, skill_name, spec, existing_mirrors)
+        return _apply_local_spec(project_dir, skills_dest, skill_name, spec, mirrors)
     if kind == "http_zip":
-        return _apply_http_zip_spec(project_dir, skills_dest, skill_name, spec, existing_mirrors)
+        return _apply_http_zip_spec(project_dir, skills_dest, skill_name, spec, mirrors)
     if kind == "github":
         return _apply_github_spec(
             project_dir,
             skills_dest,
             skill_name,
             spec,
-            existing_mirrors,
+            mirrors,
             github_token=github_token,
         )
     return f"unknown source kind: {kind!r}"

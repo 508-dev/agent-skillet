@@ -1,15 +1,7 @@
 import shutil
 from pathlib import Path
 
-from skillet.installer.lock import is_managed, load_lock, record_skill
-
-
-def _existing_mirrors(project_dir: Path, skill_name: str) -> list[str]:
-    entry = load_lock(project_dir).get("skills", {}).get(skill_name, {})
-    mirrors = entry.get("mirrors") if isinstance(entry, dict) else []
-    if not isinstance(mirrors, list):
-        return []
-    return [m for m in mirrors if isinstance(m, str) and m.strip()]
+from skillet.installer.lock import existing_mirrors, is_managed, record_skill
 
 
 def copy_skill(src: Path, dest: Path, *, project_dir: Path | None = None) -> bool:
@@ -23,25 +15,29 @@ def copy_skill(src: Path, dest: Path, *, project_dir: Path | None = None) -> boo
     return True
 
 
-def copy_all_skills(skills_src: Path, skills_dest: Path) -> int:
+def copy_all_skills(
+    skills_src: Path,
+    skills_dest: Path,
+    *,
+    project_dir: Path | None = None,
+) -> int:
     """Copy all skills from source to destination. Returns count of copied skills."""
-    project_dir = skills_dest.parent.parent
     skills_dest.mkdir(parents=True, exist_ok=True)
 
     count = 0
     for entry in skills_src.iterdir():
-        if entry.is_dir() and (entry / 'SKILL.md').exists():
+        if entry.is_dir() and (entry / "SKILL.md").exists():
             dest = skills_dest / entry.name
             copied = copy_skill(entry, dest, project_dir=project_dir)
             if not copied:
-                print(f"  ~ {entry.name} already present (not managed by Skillet), skipping")
                 continue
-            record_skill(
-                project_dir,
-                entry.name,
-                origin="bundled",
-                mirrors=_existing_mirrors(project_dir, entry.name),
-            )
+            if project_dir is not None:
+                record_skill(
+                    project_dir,
+                    entry.name,
+                    origin="bundled",
+                    mirrors=existing_mirrors(project_dir, entry.name),
+                )
             count += 1
 
     return count
