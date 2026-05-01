@@ -1,6 +1,6 @@
 [project]
 name = "agent-skillet"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI agent skills for developer workflows — git discipline, PR automation, and skill management."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -34,6 +34,8 @@ dev = [
 
 [project.scripts]
 skillet = "skillet.cli:main"
+# Same CLI; lets `uvx agent-skillet` match the PyPI distribution name.
+agent-skillet = "skillet.cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
