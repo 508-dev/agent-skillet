@@ -141,7 +141,10 @@ def _record_applied_skills(project_dir: Path, summary: MaterializeSummary) -> No
         if not isinstance(source_entry, dict):
             continue
         mirrors: list[str] = []
-        lock_entry = lock.get("skills", {}).get(name, {})
+        skills = lock.get("skills")
+        if not isinstance(skills, dict):
+            skills = {}
+        lock_entry = skills.get(name, {})
         if isinstance(lock_entry, dict) and isinstance(lock_entry.get("mirrors"), list):
             mirrors = [m for m in lock_entry["mirrors"] if isinstance(m, str) and m.strip()]
         record_skill(project_dir, name, origin=_origin_from_source_entry(source_entry), mirrors=mirrors)

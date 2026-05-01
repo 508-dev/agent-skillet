@@ -64,8 +64,9 @@ def test_apply_github_skill(
     def fake_fetch(source, *, token=None, client=None):
         return [skill], lambda: None
 
-    import skillet.sources.apply as apply_mod
-    monkeypatch.setattr(apply_mod, "fetch_github_skill_directories", fake_fetch)
+    monkeypatch.setattr(
+        "skillet.sources.apply.fetch_github_skill_directories", fake_fetch
+    )
 
     skills_dest = tmp_path / ".skillet" / "skills"
     upsert_source(
