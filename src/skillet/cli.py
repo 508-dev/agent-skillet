@@ -4,8 +4,54 @@ import shutil
 from pathlib import Path
 
 import click
+import httpx
+import importlib.resources
 
 from skillet import __version__
+
+
+# Search API configuration
+SEARCH_API_BASE = os.environ.get("SKILLS_API_URL") or "https://skills.sh"
+
+
+def search_skills_api(query: str, limit: int = 10) -> list[dict]:
+    """Search skills via the skills.sh API."""
+    try:
+        url = f"{SEARCH_API_BASE}/api/search"
+        response = httpx.get(
+            url,
+            params={"q": query, "limit": limit},
+            timeout=10.0
+        )
+        if response.status_code == 200:
+            data = response.json()
+            skills = data.get("skills", [])
+            # Transform to our format
+            results = []
+            for skill in skills:
+                results.append({
+                    "name": skill.get("name", ""),
+                    "slug": skill.get("id", ""),
+                    "source": skill.get("source", ""),
+                    "installs": skill.get("installs", 0),
+                })
+            # Sort by installs (descending)
+            results.sort(key=lambda x: x.get("installs", 0), reverse=True)
+            return results
+    except Exception:
+        pass
+    return []
+
+
+def format_installs(count: int) -> str:
+    """Format install count with K/M suffixes."""
+    if count >= 1_000_000:
+        return f"{count / 1_000_000:.1f}M installs".replace(".0M", "M")
+    elif count >= 1_000:
+        return f"{count / 1_000:.1f}K installs".replace(".0K", "K")
+    elif count > 0:
+        return f"{count} install{'s' if count != 1 else ''}"
+    return ""
 from skillet.config.project import (
     PROJECT_CONFIG_VERSION,
     agent_emit_flags_for_project,
@@ -432,15 +478,45 @@ def _search_skills_impl(term: str, directory: str) -> None:
 @click.argument("term")
 @click.argument("directory", default=".")
 def find_cmd(term: str, directory: str) -> None:
-    """Find skills by name or description."""
-    _search_skills_impl(term, directory)
+    """Find skills on skills.sh by name or description."""
+    if not term or len(term) < 2:
+        click.echo("Please provide at least 2 characters to search.")
+        return
+    
+    click.echo(f"Searching skills.sh for '{term}'...")
+    skills = search_skills_api(term)
+    
+    if not skills:
+        click.echo(f"No skills found on skills.sh matching '{term}'")
+        click.echo("Tip: Try different keywords or check your internet connection.")
+        return
+    
+    click.echo(f"\nFound {len(skills)} skill(s) on skills.sh:\n")
+    for skill in skills:
+        name = skill.get("name", "")
+        slug = skill.get("slug", "")
+        source = skill.get("source", "")
+        installs = skill.get("installs", 0)
+        
+        click.echo(f"  {name}")
+        if source:
+            click.echo(f"    Source: {source}")
+        if installs:
+            installs_text = format_installs(installs)
+            click.echo(f"    {installs_text}")
+        if slug:
+            click.echo(f"    https://skills.sh/{slug}")
+        click.echo()
+    
+    click.echo("To install a skill: skillet add <owner/repo/path>")
+    click.echo("Example: skillet add wshobson/agents/python-design-patterns")
 
 
 @main.command("search")
 @click.argument("term")
 @click.argument("directory", default=".")
 def search_cmd(term: str, directory: str) -> None:
-    """Search all skills by name or description (alias for find)."""
+    """Search local skills by name or description (alias for find)."""
     _search_skills_impl(term, directory)
 
 

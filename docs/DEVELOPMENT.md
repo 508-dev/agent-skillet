@@ -5,32 +5,24 @@ This guide explains how to set up a development environment for Agent Skillet an
 ## Prerequisites
 
 - Python 3.12 or higher
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- [uv](https://docs.astral.sh/uv/) — use `uv pip` for installs (no separate `pip` needed)
 
 ## Setting Up Development Environment
 
-### Using uv (recommended)
-
 ```bash
 # Clone the repository
 git clone https://github.com/508-dev/agent-skillet.git
 cd agent-skillet
 
-# Install dependencies (including dev dependencies)
-uv sync
+# Create a virtual environment and install in editable mode with dev dependencies
+uv venv
+uv pip install -e ".[dev]"
 ```
 
-This creates a virtual environment at `.venv/` and installs all dependencies.
-
-### Using pip
+This creates a virtual environment at `.venv/` and installs the project plus dev tools (pytest, ruff, etc.). Activate it when you want `python` / tools on your PATH without `uv run`:
 
 ```bash
-# Clone the repository
-git clone https://github.com/508-dev/agent-skillet.git
-cd agent-skillet
-
-# Install in editable mode
-pip install -e ".[dev]"
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 ```
 
 ## Running the Local Version
@@ -43,26 +35,20 @@ Run skillet directly from the source without installing:
 # Run skillet commands using uv run
 uv run skillet --help
 uv run skillet init
-uv run skillet find <query>  # Primary search command
-uv run skillet search <query>  # Alias for find
+uv run skillet find <query>  # Search skills.sh API (primary)
+uv run skillet search <query>  # Search local skills (legacy)
 ```
 
 The `uv run` command automatically uses the local source code in `src/`.
 
 ### Option 2: Editable install
 
-Install the package in editable mode so changes to the source code take effect immediately:
+Use the same `uv venv` and `uv pip install -e ".[dev]"` steps as in **Setting Up Development Environment**. Activate `.venv` (see above), then run `skillet` directly — no `uv run` prefix:
 
 ```bash
-# Install in editable mode
-uv pip install -e .
-
-# Now you can run skillet directly
 skillet --help
 skillet init
 ```
-
-With editable install, you don't need `uv run` prefix.
 
 ### Option 3: Test in a separate project
 
@@ -107,9 +93,10 @@ uv run --project /path/to/agent-skillet skillet init
 cat .skillet/config/sources.json
 ls -la .skillet/skills/
 
-# Test find command
+# Test find command (searches skills.sh API)
 uv run --project /path/to/agent-skillet skillet find git
-# Alias also works: uv run --project /path/to/agent-skillet skillet search git
+# Test search command (searches local skills)
+uv run --project /path/to/agent-skillet skillet search git
 ```
 
 ## Before Publishing

@@ -99,9 +99,10 @@ skillet add wshobson/agents/python-design-patterns@main
 # Re-sync all sources after editing sources.json
 skillet sync
 
-# Find/search skills by name or description
+# Find skills on skills.sh API
 skillet find <query>
-# Alias: skillet search <query>
+# Search local skills (legacy)
+skillet search <query>
 
 # List installed skills
 skillet list

@@ -7,7 +7,7 @@ Skills are directories that contain a `SKILL.md` file. The file starts with **YA
 | Field | Meaning |
 |-------|---------|
 | `name` | Stable id (lowercase, hyphens). Defaults to the parent directory name if omitted. |
-| `description` | One-line summary; used in `skillet list` and find/search. |
+| `description` | One-line summary; used in `skillet list` and find (skills.sh API) / search (local) |
 
 ## Example
 
