@@ -26,6 +26,11 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Copy bundled skills for packaging
+        run: |
+          mkdir -p src/skillet/bundled_skills
+          cp -r skills/* src/skillet/bundled_skills/
+
       - name: Build distributions
         run: uv build
 

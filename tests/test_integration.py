@@ -46,7 +46,7 @@ def test_copy_and_remove_skill(tmp_path):
     # Copy skills
     dest = tmp_path / 'skills'
     count = copy_all_skills(get_skills_dir(), dest)
-    assert count == 3
+    assert count == 4  # Now we have 4 bundled skills (git-os, sprint, deploy-checklist, find-skills)
     assert (dest / 'git-os' / 'SKILL.md').exists()
     
     # Remove a skill

@@ -48,7 +48,10 @@ def test_init_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> N
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
     sources = load_sources(tmp_path)
-    assert sources["git-os"] == {"kind": "local", "source": "git-os"}
+    # Check has kind, source, and path fields
+    assert sources["git-os"]["kind"] == "local"
+    assert sources["git-os"]["source"] == "git-os"
+    assert "path" in sources["git-os"]
 
 
 def test_init_uses_sources_json_as_single_source_of_truth(
