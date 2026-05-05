@@ -94,7 +94,11 @@ def test_record_and_is_managed_round_trip(tmp_path: Path) -> None:
         tmp_path,
         "git-os",
         origin="bundled",
-        mirrors=[".claude/skills/git-os/SKILL.md", "", ".cursor/skills/git-os/SKILL.md"],
+        mirrors=[
+            ".claude/skills/git-os/SKILL.md",
+            "",
+            ".cursor/skills/git-os/SKILL.md",
+        ],
     )
 
     assert is_managed(tmp_path, "git-os")
@@ -140,7 +144,10 @@ def test_unrecord_skill_handles_invalid_entry_shapes(tmp_path: Path) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(
         json.dumps(
-            {"version": 1, "skills": {"x": "not-a-dict", "y": {"origin": "o", "mirrors": "bad"}}}
+            {
+                "version": 1,
+                "skills": {"x": "not-a-dict", "y": {"origin": "o", "mirrors": "bad"}},
+            }
         ),
         encoding="utf-8",
     )
@@ -153,7 +160,12 @@ def test_unrecord_skill_skips_invalid_mirror_items(tmp_path: Path) -> None:
     p = lock_path(tmp_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(
-        json.dumps({"version": 1, "skills": {"x": {"origin": "o", "mirrors": [None, "", "  "]}}}),
+        json.dumps(
+            {
+                "version": 1,
+                "skills": {"x": {"origin": "o", "mirrors": [None, "", "  "]}},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -178,7 +190,10 @@ def test_unrecord_skill_defensive_branches_with_malformed_loaded_lock(
     monkeypatch.setattr(
         lock_mod,
         "load_lock",
-        lambda _project_dir: {"version": 1, "skills": {"x": {"origin": "o", "mirrors": "bad"}}},
+        lambda _project_dir: {
+            "version": 1,
+            "skills": {"x": {"origin": "o", "mirrors": "bad"}},
+        },
     )
     assert unrecord_skill(tmp_path, "x") == []
 

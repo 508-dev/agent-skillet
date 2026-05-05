@@ -36,7 +36,9 @@ def _remove_mirror_from_lock_entries(entries: list[dict], rel_skill_md: str) -> 
     return False
 
 
-def _tracked_mirror_dirs(entries: list[dict], dest_root: Path, project_dir: Path) -> set[str]:
+def _tracked_mirror_dirs(
+    entries: list[dict], dest_root: Path, project_dir: Path
+) -> set[str]:
     """Return mirror directory paths under dest_root tracked in lock."""
     tracked: set[str] = set()
     for entry in entries:
@@ -102,7 +104,9 @@ def _prune_disabled_emitters(project_dir: Path, config: dict) -> None:
     save_lock(project_dir, lock)
 
 
-def emit_native_skills(skills_dir: Path, dest_root: Path, project_dir: Path | None = None) -> None:
+def emit_native_skills(
+    skills_dir: Path, dest_root: Path, project_dir: Path | None = None
+) -> None:
     """Mirror each skill at ``<dest_root>/<name>/SKILL.md`` and prune removed skills.
 
     ``dest_root`` is a value from ``AGENT_NATIVE_SKILL_REL_PATH`` (e.g. ``.claude/skills``).

@@ -15,8 +15,8 @@ metadata:
 # Skill Content
 """
     result = parse_frontmatter(content)
-    assert result['name'] == 'test-skill'
-    assert result['description'] == 'A test skill'
+    assert result["name"] == "test-skill"
+    assert result["description"] == "A test skill"
 
 
 def test_parse_frontmatter_empty():
@@ -26,12 +26,13 @@ def test_parse_frontmatter_empty():
 
 
 def test_get_skills_from_directory():
-    from skillet.cli import get_skills_dir
+    from skillet.utils import get_skills_dir
+
     bundled = get_skills_dir()
     skills = get_skills_from_directory(bundled)
     assert len(skills) >= 3
-    names = [s['name'] for s in skills]
-    assert 'git-os' in names
+    names = [s["name"] for s in skills]
+    assert "git-os" in names
 
 
 def test_generate_skills_xml_escapes_markup(tmp_path: Path) -> None:

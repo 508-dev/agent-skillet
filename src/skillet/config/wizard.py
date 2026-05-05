@@ -108,8 +108,8 @@ def _print_config_wizard_footer(config: dict) -> None:
     click.echo("  GITHUB_TOKEN — optional")
 
     if (config.get("github_token") or "").strip():
-        click.echo(
-            "\nA token was saved in ~/.config/skillet/config.json. "
-        )
+        click.echo("\nA token was saved in ~/.config/skillet/config.json. ")
     else:
-        click.echo("\nNo GitHub token was entered; add one when you use private `skillet add` sources.")
+        click.echo(
+            "\nNo GitHub token was entered; add one when you use private `skillet add` sources."
+        )

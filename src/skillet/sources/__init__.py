@@ -108,9 +108,7 @@ def resolve_skill_directories(
     if looks_like_local_source_spec(spec):
         dirs = resolve_local_skill_directories(spec, cwd=base)
         return ResolvedSkills(skill_directories=dirs, _cleanup=None)
-    return resolve_github_skill_directories(
-        spec, cwd=base, token=token, client=client
-    )
+    return resolve_github_skill_directories(spec, cwd=base, token=token, client=client)
 
 
 @contextmanager

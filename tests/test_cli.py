@@ -132,7 +132,7 @@ def test_remove_prunes_skill_from_all_native_trees(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -198,7 +198,7 @@ def test_sync_strips_legacy_skillet_files(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()

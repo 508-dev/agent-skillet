@@ -16,7 +16,9 @@ def test_sources_roundtrip(tmp_path: Path) -> None:
     upsert_source(tmp_path, "a-skill", {"kind": "local", "path": "vendor/a"})
     assert load_sources(tmp_path) == {"a-skill": {"kind": "local", "path": "vendor/a"}}
 
-    upsert_source(tmp_path, "b-skill", {"kind": "http_zip", "url": "https://example.com/z.zip"})
+    upsert_source(
+        tmp_path, "b-skill", {"kind": "http_zip", "url": "https://example.com/z.zip"}
+    )
     loaded = load_sources(tmp_path)
     assert len(loaded) == 2
     assert loaded["b-skill"]["kind"] == "http_zip"
@@ -46,15 +48,15 @@ def test_load_sources_filters_non_objects(tmp_path: Path) -> None:
     p = sources_json_path(tmp_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(
-        json.dumps({"ok": {"kind": "local", "path": "."}, "bad": "skip", "no_kind": {}}),
+        json.dumps(
+            {"ok": {"kind": "local", "path": "."}, "bad": "skip", "no_kind": {}}
+        ),
         encoding="utf-8",
     )
     assert load_sources(tmp_path) == {"ok": {"kind": "local", "path": "."}}
 
 
-def test_apply_github_skill(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_apply_github_skill(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     skill = tmp_path / "fetched" / "gh-skill"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text(

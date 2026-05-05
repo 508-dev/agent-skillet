@@ -253,9 +253,8 @@ def _download_archive_for_source(
             raise
     if archive is not None:
         return archive
-    msg = (
-        f"Could not download {source.owner}/{source.repo}"
-        + (f"@{source.ref}" if source.ref else " (tried main, master)")
+    msg = f"Could not download {source.owner}/{source.repo}" + (
+        f"@{source.ref}" if source.ref else " (tried main, master)"
     )
     raise RuntimeError(msg) from last
 

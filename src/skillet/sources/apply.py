@@ -14,7 +14,10 @@ import httpx
 from skillet.installer.copier import copy_skill
 from skillet.installer.lock import existing_mirrors, is_managed, record_skill
 from skillet.skills.parser import parse_skill_file
-from skillet.sources.github import fetch_github_skill_directories, parse_github_source_spec
+from skillet.sources.github import (
+    fetch_github_skill_directories,
+    parse_github_source_spec,
+)
 from skillet.sources.store import load_sources
 
 
@@ -52,7 +55,9 @@ def _download_http_zip(url: str, dest_dir: Path) -> None:
             for member in zf.infolist():
                 member_path = (dest_dir_resolved / member.filename).resolve()
                 if not member_path.is_relative_to(dest_dir_resolved):
-                    raise RuntimeError(f"Zip slip vulnerability detected: {member.filename}")
+                    raise RuntimeError(
+                        f"Zip slip vulnerability detected: {member.filename}"
+                    )
                 zf.extract(member, dest_dir)
     except Exception as e:
         raise RuntimeError(f"Failed to download zip: {e}") from e
@@ -134,7 +139,9 @@ def _apply_github_source(
         return str(e)
     finally:
         cleanup()
-    record_skill(project_dir, skill_name, origin=f"github:{source_str}", mirrors=mirrors)
+    record_skill(
+        project_dir, skill_name, origin=f"github:{source_str}", mirrors=mirrors
+    )
     return None
 
 
@@ -156,7 +163,9 @@ def _apply_one(
     if kind == "local":
         return _apply_local_source(project_dir, skills_dest, skill_name, entry, mirrors)
     if kind == "http_zip":
-        return _apply_http_zip_source(project_dir, skills_dest, skill_name, entry, mirrors)
+        return _apply_http_zip_source(
+            project_dir, skills_dest, skill_name, entry, mirrors
+        )
     if kind == "github":
         return _apply_github_source(
             project_dir,

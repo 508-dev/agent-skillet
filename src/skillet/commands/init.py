@@ -1,25 +1,28 @@
 """Init command - initialize Skillet in a directory."""
 
-import click
-from pathlib import Path
 import shutil
+from pathlib import Path
 
-from skillet.utils import (
-    get_project_skills_dir,
-    _seed_default_sources,
-    _ensure_project_skills_dir,
-    _github_token,
-    apply_all_sources,
-    _record_applied_skills,
-    _print_sync_errors,
-    _materialize_summary_lines,
+import click
+
+from skillet.config.project import (
+    PROJECT_CONFIG_VERSION,
     ensure_project_agents,
+    get_project_config_dir,
     load_project_config,
     save_project_config,
+)
+from skillet.sources import apply_all_sources
+from skillet.utils import (
     _emit_native_mirrors,
+    _ensure_project_skills_dir,
+    _github_token,
+    _materialize_summary_lines,
     _print_mirror_lines,
-    get_project_config_dir,
-    PROJECT_CONFIG_VERSION,
+    _print_sync_errors,
+    _record_applied_skills,
+    _seed_default_sources,
+    get_project_skills_dir,
 )
 
 
@@ -38,7 +41,9 @@ def _init_command(directory: str, skip_config: bool, skip_bundled: bool) -> None
     if not skip_bundled:
         seeded = _seed_default_sources(project_dir)
         if seeded:
-            click.echo(f"  ✓ Bootstrapped {seeded} source(s) in .skillet/config/sources.json")
+            click.echo(
+                f"  ✓ Bootstrapped {seeded} source(s) in .skillet/config/sources.json"
+            )
 
     if project_skills.exists():
         shutil.rmtree(project_skills)

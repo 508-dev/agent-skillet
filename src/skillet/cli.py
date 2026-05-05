@@ -4,36 +4,28 @@ import click
 from pathlib import Path
 
 from skillet import __version__
-from skillet.utils import (
-    get_skills_dir,
-    get_project_skills_dir,
-    _seed_default_sources,
-    _ensure_project_skills_dir,
-    _github_token,
-    _print_sync_errors,
-    _materialize_summary_lines,
-    _print_mirror_lines,
-    _print_tracked_sources_count,
-    _record_applied_skills,
-    _emit_native_mirrors,
-    _sync_footer,
+from skillet.config.wizard import run_config_wizard
+from skillet.installer.copier import remove_skill
+from skillet.installer.lock import is_managed, unrecord_skill
+from skillet.operations.add_sources import add_sources, apply_sources_and_emit
+from skillet.skills.parser import get_skills_from_directory
+from skillet.sources import (
     apply_all_sources,
     load_sources,
-    sources_json_path,
-    add_sources,
-    apply_sources_and_emit,
-    is_managed,
     remove_source_entry,
-    unrecord_skill,
-    remove_skill,
-    get_skills_from_directory,
-    search_skills,
-    run_config_wizard,
-    load_project_config,
-    save_project_config,
-    ensure_project_agents,
-    get_project_config_dir,
-    PROJECT_CONFIG_VERSION,
+    sources_json_path,
+)
+from skillet.utils import (
+    _emit_native_mirrors,
+    _ensure_project_skills_dir,
+    _github_token,
+    _materialize_summary_lines,
+    _print_mirror_lines,
+    _print_sync_errors,
+    _print_tracked_sources_count,
+    _record_applied_skills,
+    _sync_footer,
+    get_project_skills_dir,
 )
 from skillet.commands import _find_command, _search_command, _init_command
 

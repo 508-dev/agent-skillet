@@ -1,37 +1,17 @@
 """Shared utilities for skillet CLI."""
 
-import importlib.resources
 import os
 from pathlib import Path
 
 import click
 import httpx
 
-from skillet import __version__
-from skillet.config.project import (
-    PROJECT_CONFIG_VERSION,
-    agent_emit_flags_for_project,
-    ensure_project_agents,
-    get_project_config_dir,
-    load_project_config,
-    save_project_config,
-)
+from skillet.config.project import agent_emit_flags_for_project
 from skillet.config.settings import load_config
-from skillet.config.wizard import run_config_wizard
-from skillet.installer.copier import remove_skill
 from skillet.installer.emitters import write_config_files
-from skillet.installer.lock import is_managed, load_lock, record_skill, unrecord_skill
-from skillet.skills.parser import parse_skill_file, get_skills_from_directory
-from skillet.skills.search import search_skills
-from skillet.operations.add_sources import add_sources, apply_sources_and_emit
-from skillet.sources import (
-    MaterializeSummary,
-    apply_all_sources,
-    load_sources,
-    remove_source_entry,
-    sources_json_path,
-    upsert_source,
-)
+from skillet.installer.lock import load_lock, record_skill
+from skillet.skills.parser import parse_skill_file
+from skillet.sources import MaterializeSummary, load_sources, upsert_source
 
 
 # Search API configuration
@@ -42,23 +22,21 @@ def search_skills_api(query: str, limit: int = 10) -> list[dict]:
     """Search skills via the skills.sh API."""
     try:
         url = f"{SEARCH_API_BASE}/api/search"
-        response = httpx.get(
-            url,
-            params={"q": query, "limit": limit},
-            timeout=10.0
-        )
+        response = httpx.get(url, params={"q": query, "limit": limit}, timeout=10.0)
         if response.status_code == 200:
             data = response.json()
             skills = data.get("skills", [])
             # Transform to our format
             results = []
             for skill in skills:
-                results.append({
-                    "name": skill.get("name", ""),
-                    "slug": skill.get("id", ""),
-                    "source": skill.get("source", ""),
-                    "installs": skill.get("installs", 0),
-                })
+                results.append(
+                    {
+                        "name": skill.get("name", ""),
+                        "slug": skill.get("id", ""),
+                        "source": skill.get("source", ""),
+                        "installs": skill.get("installs", 0),
+                    }
+                )
             # Sort by installs (descending)
             results.sort(key=lambda x: x.get("installs", 0), reverse=True)
             return results
@@ -83,6 +61,7 @@ def get_skills_dir(project_dir: Path | None = None) -> Path:
     # First, try to find the package's bundled_skills directory
     try:
         import skillet
+
         pkg_path = Path(skillet.__file__).parent
         bundled = pkg_path / "bundled_skills"
         if bundled.is_dir():
@@ -92,10 +71,11 @@ def get_skills_dir(project_dir: Path | None = None) -> Path:
                     return bundled
     except (ImportError, AttributeError):
         pass
-    
+
     # Fallback: look for skills directory in the skillet source tree (development)
     try:
         import skillet
+
         pkg_path = Path(skillet.__file__).parent.parent.parent  # Go up to repo root
         skills_dir = pkg_path / "skills"
         if skills_dir.is_dir():
@@ -104,7 +84,7 @@ def get_skills_dir(project_dir: Path | None = None) -> Path:
                     return skills_dir
     except (ImportError, AttributeError):
         pass
-    
+
     # Fallback: look for skills directory in the project (for edge cases)
     if project_dir is None:
         project_dir = Path.cwd()
@@ -134,7 +114,11 @@ def _seed_default_sources(project_dir: Path) -> int:
         if not name:
             continue
         # Use absolute path for bundled skills so they can be found at runtime
-        upsert_source(project_dir, name, {"kind": "local", "source": entry.name, "path": str(entry.resolve())})
+        upsert_source(
+            project_dir,
+            name,
+            {"kind": "local", "source": entry.name, "path": str(entry.resolve())},
+        )
         seeded += 1
     return seeded
 
@@ -211,7 +195,7 @@ def _origin_from_source_entry(entry: dict) -> str:
 def _record_applied_skills(project_dir: Path, summary: MaterializeSummary) -> None:
     lock = load_lock(project_dir)
     sources = load_sources(project_dir)
-    for name in (set(summary.added) | set(summary.unchanged)):
+    for name in set(summary.added) | set(summary.unchanged):
         source_entry = sources.get(name)
         if not isinstance(source_entry, dict):
             continue
@@ -221,8 +205,15 @@ def _record_applied_skills(project_dir: Path, summary: MaterializeSummary) -> No
             skills = {}
         lock_entry = skills.get(name, {})
         if isinstance(lock_entry, dict) and isinstance(lock_entry.get("mirrors"), list):
-            mirrors = [m for m in lock_entry["mirrors"] if isinstance(m, str) and m.strip()]
-        record_skill(project_dir, name, origin=_origin_from_source_entry(source_entry), mirrors=mirrors)
+            mirrors = [
+                m for m in lock_entry["mirrors"] if isinstance(m, str) and m.strip()
+            ]
+        record_skill(
+            project_dir,
+            name,
+            origin=_origin_from_source_entry(source_entry),
+            mirrors=mirrors,
+        )
 
 
 def _materialize_summary_lines(
