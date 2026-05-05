@@ -29,24 +29,24 @@ zsh install.sh
 
 ## Quick Start
 
-```text
-Usage: skillet [OPTIONS] COMMAND [ARGS]...
+1. Initialize Skillet in your project:
+   ```bash
+   skillet init
+   ```
 
-  Skillet — initialize and sync agent skills into your repo
+2. Find skills for your needs:
+   ```bash
+   skillet find
+   # or search with keywords: skillet find <query>
+   ```
 
-Options:
-  --version  Show the version and exit.
-  --help     Show this message and exit.
+3. Add a skill to your project:
+   ```bash
+   skillet add <skill-name>
+   # Example: skillet add git-os
+   ```
 
-Commands:
-  add     Add skills from a local skills directory or GitHub.
-  config  Global defaults: agent targets and optional GitHub token for...
-  init    Initialize Skillet in a directory, sync sources, mirror native...
-  list    List all materialized skills.
-  remove  Remove an installed skill.
-  search  Search all skills by name or description.
-  sync    Read sources from `.skillet/config/sources.json` and sync.
-```
+Then run `skillet sync` whenever you update your skill sources.
 
 ## How It Works
 
@@ -87,17 +87,21 @@ skillet init
 # Add a local skill directory (must contain SKILL.md)
 skillet add ./team-skills/checkout-flow
 
-# Add a single skill from a GitHub repo  (owner/repo/subpath)
+# Add a single skill from a GitHub repo (owner/repo/subpath)
 skillet add anthropics/skills/skill-creator
 
-# Add all skills from a GitHub repo  (owner/repo)
+# Add all skills from a GitHub repo (owner/repo)
 skillet add wshobson/agents
 
-# Pin to a specific branch or tag  (owner/repo/subpath@ref)
+# Pin to a specific branch or tag (owner/repo/subpath@ref)
 skillet add wshobson/agents/python-design-patterns@main
 
 # Re-sync all sources after editing sources.json
 skillet sync
+
+# Find/search skills by name or description
+skillet find <query>
+# Alias: skillet search <query>
 
 # List installed skills
 skillet list
@@ -112,6 +116,7 @@ skillet remove skill-creator
 
 ## Bundled Skills
 
+- `find-skills`: Discover and install skills from the Agent Skillet ecosystem
 - `git-os`: Conventional commits, atomic changes, and GIT-OS workflow
 - `sprint`: Ticket-to-PR automation with branch and description templates
 - `deploy-checklist`: Pre/post deployment verification checklist
@@ -119,6 +124,7 @@ skillet remove skill-creator
 ## Documentation
 
 - [Authoring skills](docs/AUTHORING.md)
+- [Development guide](docs/DEVELOPMENT.md)
 - [Releasing](docs/RELEASE.md)
 
 ## Contributing

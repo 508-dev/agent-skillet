@@ -7,7 +7,7 @@ Skills are directories that contain a `SKILL.md` file. The file starts with **YA
 | Field | Meaning |
 |-------|---------|
 | `name` | Stable id (lowercase, hyphens). Defaults to the parent directory name if omitted. |
-| `description` | One-line summary; used in `skillet list` and search. |
+| `description` | One-line summary; used in `skillet list` and find/search. |
 
 ## Example
 
@@ -29,7 +29,7 @@ description: When editing payment code, follow these invariants.
 
 ## Where skills live
 
-- **Skills** defaults live in this repository at `skills/` and are copied to `.skillet/skills/` on `skillet init`.
+- **Bundled skills** live in `src/skillet/bundled_skills/` and are copied to `.skillet/skills/` on `skillet init`. The `path` field in `sources.json` points to the absolute path of the bundled skill.
 - **Repo-owned** skills live anywhere in your tree (e.g. `./team-skills/checkout-flow/`). Register them with:
 
   ```bash
@@ -42,8 +42,8 @@ description: When editing payment code, follow these invariants.
 
 `skillet init` and `skillet sync` read `.skillet/config/sources.json` as the single source of truth.
 
-- `kind: "local"` with `"source": "<name>"` resolves to `./skills/<name>/`
-- `kind: "local"` with `"path": "<dir>"` resolves directly to that directory
+- `kind: "local"` with `"source": "<name>"` and `"path": "<absolute-dir>"` resolves to that absolute path
+- `kind: "local"` with `"source": "<name>"` (no path) resolves to `./skills/<name>/` (legacy behavior)
 - `kind: "github"` with `"source": "<owner/repo/subpath[@ref]>"` — same format as `skillet add`
 
 Example: install only local `git-os` (exclude other repo skills):
