@@ -1,3 +1,4 @@
+import importlib.resources
 import os
 import shutil
 from pathlib import Path
@@ -33,14 +34,42 @@ from skillet.sources import (
 
 
 def get_skills_dir(project_dir: Path | None = None) -> Path:
-    """Return local repository ``skills/`` directory for this project."""
-    repo_root = (project_dir or Path.cwd()).resolve()
+    """Return bundled skills directory from the skillet package."""
+    # First, try to find the package's bundled_skills directory
+    try:
+        import skillet
+        pkg_path = Path(skillet.__file__).parent
+        bundled = pkg_path / "bundled_skills"
+        if bundled.is_dir():
+            # Verify it has at least one skill with SKILL.md
+            for entry in bundled.iterdir():
+                if entry.is_dir() and (entry / "SKILL.md").is_file():
+                    return bundled
+    except (ImportError, AttributeError):
+        pass
+    
+    # Fallback: look for skills directory in the skillet source tree (development)
+    try:
+        import skillet
+        pkg_path = Path(skillet.__file__).parent.parent.parent  # Go up to repo root
+        skills_dir = pkg_path / "skills"
+        if skills_dir.is_dir():
+            for entry in skills_dir.iterdir():
+                if entry.is_dir() and (entry / "SKILL.md").is_file():
+                    return skills_dir
+    except (ImportError, AttributeError):
+        pass
+    
+    # Fallback: look for skills directory in the project (for edge cases)
+    if project_dir is None:
+        project_dir = Path.cwd()
+    repo_root = project_dir.resolve()
     bundled = repo_root / "skills"
     if bundled.is_dir():
         for entry in bundled.iterdir():
             if entry.is_dir() and (entry / "SKILL.md").is_file():
                 return bundled
-    raise RuntimeError("Cannot find bundled skills at repository root: skills/")
+    raise RuntimeError("Cannot find bundled skills directory")
 
 
 def _seed_default_sources(project_dir: Path) -> int:
@@ -59,7 +88,8 @@ def _seed_default_sources(project_dir: Path) -> int:
         name = str(meta.get("name") or entry.name).strip()
         if not name:
             continue
-        upsert_source(project_dir, name, {"kind": "local", "source": entry.name})
+        # Use absolute path for bundled skills so they can be found at runtime
+        upsert_source(project_dir, name, {"kind": "local", "source": entry.name, "path": str(entry.resolve())})
         seeded += 1
     return seeded
 
@@ -184,7 +214,12 @@ def main(ctx: click.Context) -> None:
     is_flag=True,
     help="Skip agent target prompt and native skill directory mirroring",
 )
-def init_cmd(directory: str, skip_config: bool) -> None:
+@click.option(
+    "--skip-bundled",
+    is_flag=True,
+    help="Skip installing bundled skills (default: install bundled skills)",
+)
+def init_cmd(directory: str, skip_config: bool, skip_bundled: bool) -> None:
     """Initialize Skillet in a directory, sync sources, mirror native skill dirs."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
@@ -196,9 +231,10 @@ def init_cmd(directory: str, skip_config: bool) -> None:
     proj_cfg.setdefault("version", PROJECT_CONFIG_VERSION)
     save_project_config(project_dir, proj_cfg)
 
-    seeded = _seed_default_sources(project_dir)
-    if seeded:
-        click.echo(f"  ✓ Bootstrapped {seeded} source(s) in .skillet/config/sources.json")
+    if not skip_bundled:
+        seeded = _seed_default_sources(project_dir)
+        if seeded:
+            click.echo(f"  ✓ Bootstrapped {seeded} source(s) in .skillet/config/sources.json")
 
     if project_skills.exists():
         shutil.rmtree(project_skills)
@@ -369,11 +405,8 @@ def list_cmd(directory: str) -> None:
     click.echo(f"\n{len(skills)} skill(s)")
 
 
-@main.command("search")
-@click.argument("term")
-@click.argument("directory", default=".")
-def search_cmd(term: str, directory: str) -> None:
-    """Search all skills by name or description."""
+def _search_skills_impl(term: str, directory: str) -> None:
+    """Shared implementation for search and find commands."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
 
@@ -393,6 +426,22 @@ def search_cmd(term: str, directory: str) -> None:
         click.echo(f"  {skill['name']} (score: {skill['score']})")
         if skill["description"]:
             click.echo(f"    {skill['description']}")
+
+
+@main.command("find")
+@click.argument("term")
+@click.argument("directory", default=".")
+def find_cmd(term: str, directory: str) -> None:
+    """Find skills by name or description."""
+    _search_skills_impl(term, directory)
+
+
+@main.command("search")
+@click.argument("term")
+@click.argument("directory", default=".")
+def search_cmd(term: str, directory: str) -> None:
+    """Search all skills by name or description (alias for find)."""
+    _search_skills_impl(term, directory)
 
 
 @main.command("config")

@@ -1,6 +1,6 @@
 [project]
 name = "agent-skillet"
-version = "0.1.1"
+version = "0.2.0"
 description = "Install, version, and sync agent skills in your repository to your favorite agents (Claude, Cursor, Copilot, and similar)."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -45,6 +45,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"skillet" = ["../skills/*/SKILL.md"]
 
 [tool.ruff]
 target-version = "py312"
