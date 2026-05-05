@@ -90,7 +90,7 @@ def test_init_mirrors_native_skill_directories(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -111,7 +111,7 @@ def test_sync_restores_native_mirrors_from_sources_json(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
