@@ -29,24 +29,34 @@ zsh install.sh
 
 ## Quick Start
 
-1. Initialize Skillet in your project:
+1. Initialize Skillet in your project
+
    ```bash
    skillet init
    ```
 
-2. Find skills for your needs:
+   This command prompts which agentic coding tool you're using, then
+   - Seeds current project managed by skillet with every bundled skill in `skills` folder
+   - Materializes them under `.skillet/skills/<skill_name>/`, and mirrors into configured agent folders
+
+2. Add new skills from Github (`owner/repo` or `owner/repo/path[@ref]`):
+
    ```bash
-   skillet find
-   # or search with keywords: skillet find <query>
+   skillet add anthropics/skills/frontend-design@main
    ```
 
-3. Add a skill to your project:
+## Configuration
+
+1. To onfigure which agentic coding tool(s) skills show up for (Cursor, Claude Code, and other agents each have their own mirror paths):
+
    ```bash
-   skillet add <skill-name>
-   # Example: skillet add git-os
+   skillet config    # update your agentic coding tool
+   skillet sync      # sync skills to your new destination
    ```
 
-Then run `skillet sync` whenever you update your skill sources.
+## Browse skills
+
+1. Browse skills publicly with `skillet find <query>` or local ones with `skillet search <query>`.
 
 ## How It Works
 
