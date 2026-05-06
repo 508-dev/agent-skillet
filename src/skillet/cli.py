@@ -1,5 +1,7 @@
 """Skillet CLI - thin entry points to command implementations."""
 
+import sys
+
 import click
 from pathlib import Path
 
@@ -29,12 +31,29 @@ from skillet.utils import (
 )
 from skillet.commands import _find_command, _search_command, _init_command
 
+# Block-letter banner (UTF-8); shown before each subcommand unless --help / -h.
+_SKILLET_BANNER = """\
+
+███████╗██╗  ██╗██╗██╗     ██╗     ███████╗████████╗
+██╔════╝██║ ██╔╝██║██║     ██║     ██╔════╝   ██╔══╝
+███████╗█████╔╝ ██║██║     ██║     ███████╝   ██║
+╚════██║██╔═██╗ ██║██║     ██║     ██╔════╝   ██║
+███████║██║  ██╗██║███████╗███████╗███████╝   ██║
+╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝
+"""
+
+
+def _argv_requests_help() -> bool:
+    return any(a in ("-h", "--help") for a in sys.argv[1:])
+
 
 @click.group(invoke_without_command=True)
 @click.version_option(__version__)
 @click.pass_context
 def main(ctx: click.Context) -> None:
     """Skillet — initialize and sync agent skills into your repo"""
+    if ctx.invoked_subcommand is not None and not _argv_requests_help():
+        click.echo(_SKILLET_BANNER)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
