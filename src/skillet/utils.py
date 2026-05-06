@@ -71,7 +71,7 @@ def search_skills_api(query: str, limit: int = 10) -> list[dict]:
         logger.exception(
             "skills.sh search unexpected error processing response q=%r", query
         )
-        raise
+        return []
 
 
 def format_installs(count: int) -> str:
