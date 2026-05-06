@@ -109,7 +109,7 @@ uv run --project /path/to/agent-skillet skillet search git
 
 ## Project Structure
 
-```
+```text
 agent-skillet/
 ├── src/skillet/          # Main package source code
 │   ├── cli.py            # CLI commands

@@ -201,17 +201,16 @@ def list_cmd(directory: str) -> None:
 
 @main.command("find")
 @click.argument("term")
-@click.argument("directory", default=".")
-def find_cmd(term: str, directory: str) -> None:
+def find_cmd(term: str) -> None:
     """Find skills on skills.sh by name or description."""
-    _find_command(term, directory)
+    _find_command(term)
 
 
 @main.command("search")
 @click.argument("term")
 @click.argument("directory", default=".")
 def search_cmd(term: str, directory: str) -> None:
-    """Search local skills by name or description (alias for find)."""
+    """Search local skills by name or description."""
     _search_command(term, directory)
 
 

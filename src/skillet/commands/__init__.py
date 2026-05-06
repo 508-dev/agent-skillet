@@ -8,7 +8,4 @@ __all__ = [
     "_find_command",
     "_search_command",
     "_init_command",
-    "find",
-    "search",
-    "init",
 ]

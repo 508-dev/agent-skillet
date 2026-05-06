@@ -77,12 +77,51 @@ def _apply_local_source(
     if not rel:
         return "local source missing path or source"
     src = (project_dir / rel).resolve()
+    if not src.exists() and local_source:
+        try:
+            from skillet.utils import get_skills_dir
+
+            root = get_skills_dir(project_dir)
+            alt = (root / local_source).resolve()
+            if alt.is_dir() and (alt / "SKILL.md").is_file():
+                src = alt
+        except RuntimeError:
+            pass
     if not src.exists():
         return f"local path does not exist: {rel}"
     if not src.is_dir() or not (src / "SKILL.md").exists():
         return f"not a skill directory (missing SKILL.md): {rel}"
     copy_skill(src, skills_dest / skill_name)
-    record_skill(project_dir, skill_name, origin=f"local:{rel}", mirrors=mirrors)
+    origin_rel = (
+        src.relative_to(project_dir).as_posix()
+        if src.is_relative_to(project_dir)
+        else str(src)
+    )
+    record_skill(project_dir, skill_name, origin=f"local:{origin_rel}", mirrors=mirrors)
+    return None
+
+
+def _apply_bundled_source(
+    project_dir: Path,
+    skills_dest: Path,
+    skill_name: str,
+    entry: dict[str, Any],
+    mirrors: list[str],
+) -> str | None:
+    sub = str(entry.get("source", "")).strip()
+    if not sub:
+        return "bundled source missing source name"
+    try:
+        from skillet.utils import get_skills_dir
+
+        root = get_skills_dir(project_dir)
+    except RuntimeError as e:
+        return str(e)
+    src = (root / sub).resolve()
+    if not src.is_dir() or not (src / "SKILL.md").is_file():
+        return f"bundled skill not found: {sub}"
+    copy_skill(src, skills_dest / skill_name)
+    record_skill(project_dir, skill_name, origin=f"bundled:{sub}", mirrors=mirrors)
     return None
 
 
@@ -160,6 +199,10 @@ def _apply_one(
     mirrors = existing_mirrors(project_dir, skill_name)
 
     kind = entry.get("kind")
+    if kind == "bundled":
+        return _apply_bundled_source(
+            project_dir, skills_dest, skill_name, entry, mirrors
+        )
     if kind == "local":
         return _apply_local_source(project_dir, skills_dest, skill_name, entry, mirrors)
     if kind == "http_zip":

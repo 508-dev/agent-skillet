@@ -1,5 +1,6 @@
 """Shared utilities for skillet CLI."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -17,32 +18,60 @@ from skillet.sources import MaterializeSummary, load_sources, upsert_source
 # Search API configuration
 SEARCH_API_BASE = os.environ.get("SKILLS_API_URL") or "https://skills.sh"
 
+logger = logging.getLogger(__name__)
+
 
 def search_skills_api(query: str, limit: int = 10) -> list[dict]:
     """Search skills via the skills.sh API."""
+    url = f"{SEARCH_API_BASE}/api/search"
     try:
-        url = f"{SEARCH_API_BASE}/api/search"
         response = httpx.get(url, params={"q": query, "limit": limit}, timeout=10.0)
-        if response.status_code == 200:
-            data = response.json()
-            skills = data.get("skills", [])
-            # Transform to our format
-            results = []
-            for skill in skills:
-                results.append(
-                    {
-                        "name": skill.get("name", ""),
-                        "slug": skill.get("id", ""),
-                        "source": skill.get("source", ""),
-                        "installs": skill.get("installs", 0),
-                    }
-                )
-            # Sort by installs (descending)
-            results.sort(key=lambda x: x.get("installs", 0), reverse=True)
-            return results
+    except httpx.TimeoutException as e:
+        logger.warning(f"{SEARCH_API_BASE} search timeout: {e} q={query}")
+        return []
+    except httpx.RequestError as e:
+        logger.warning(f"{SEARCH_API_BASE} search request failed: {e} q={query}")
+        return []
+
+    if response.status_code != 200:
+        body = (response.text or "")[:500]
+        logger.warning(
+            "skills.sh search non-200: status=%s body=%r q=%r",
+            response.status_code,
+            body,
+            query,
+        )
+        return []
+
+    try:
+        data = response.json()
+    except ValueError as e:
+        logger.warning("skills.sh search invalid JSON: %s q=%r", e, query)
+        return []
+
+    try:
+        skills = data.get("skills", [])
+        if not isinstance(skills, list):
+            skills = []
+        results = []
+        for skill in skills:
+            if not isinstance(skill, dict):
+                continue
+            results.append(
+                {
+                    "name": skill.get("name", ""),
+                    "slug": skill.get("id", ""),
+                    "source": skill.get("source", ""),
+                    "installs": skill.get("installs", 0),
+                }
+            )
+        results.sort(key=lambda x: x.get("installs", 0), reverse=True)
+        return results
     except Exception:
-        pass
-    return []
+        logger.exception(
+            "skills.sh search unexpected error processing response q=%r", query
+        )
+        raise
 
 
 def format_installs(count: int) -> str:
@@ -77,12 +106,16 @@ def get_skills_dir(project_dir: Path | None = None) -> Path:
         import skillet
 
         pkg_path = Path(skillet.__file__).parent.parent.parent  # Go up to repo root
+        dev_checkout = pkg_path / "pyproject.toml"
+        dev_git = pkg_path / ".git"
+        if not (dev_checkout.is_file() or dev_git.is_dir()):
+            raise RuntimeError
         skills_dir = pkg_path / "skills"
         if skills_dir.is_dir():
             for entry in skills_dir.iterdir():
                 if entry.is_dir() and (entry / "SKILL.md").is_file():
                     return skills_dir
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, RuntimeError):
         pass
 
     # Fallback: look for skills directory in the project (for edge cases)
@@ -113,11 +146,10 @@ def _seed_default_sources(project_dir: Path) -> int:
         name = str(meta.get("name") or entry.name).strip()
         if not name:
             continue
-        # Use absolute path for bundled skills so they can be found at runtime
         upsert_source(
             project_dir,
             name,
-            {"kind": "local", "source": entry.name, "path": str(entry.resolve())},
+            {"kind": "bundled", "source": entry.name},
         )
         seeded += 1
     return seeded
@@ -179,6 +211,8 @@ def _origin_from_source_entry(entry: dict) -> str:
     kind = str(entry.get("kind", "")).strip()
     if kind == "github":
         return f"github:{str(entry.get('source', '')).strip()}"
+    if kind == "bundled":
+        return f"bundled:{str(entry.get('source', '')).strip()}"
     if kind == "local":
         path = str(entry.get("path", "")).strip()
         if path:

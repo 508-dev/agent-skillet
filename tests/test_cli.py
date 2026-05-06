@@ -7,7 +7,11 @@ from click.testing import CliRunner
 
 from skillet.cli import _materialize_summary_lines, _sync_footer, main
 from skillet.sources import MaterializeSummary
-from skillet.config.project import PROJECT_CONFIG_VERSION, save_project_config
+from skillet.config.project import (
+    PROJECT_CONFIG_VERSION,
+    get_project_config_dir,
+    save_project_config,
+)
 from skillet.sources.store import load_sources, save_sources
 
 
@@ -48,10 +52,9 @@ def test_init_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> N
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
     sources = load_sources(tmp_path)
-    # Check has kind, source, and path fields
-    assert sources["git-os"]["kind"] == "local"
+    assert sources["git-os"]["kind"] == "bundled"
     assert sources["git-os"]["source"] == "git-os"
-    assert "path" in sources["git-os"]
+    assert "path" not in sources["git-os"]
 
 
 def test_init_uses_sources_json_as_single_source_of_truth(
@@ -82,6 +85,29 @@ def test_init_removed_flags_raise_usage_error() -> None:
     for args in (["init", "--all"], ["init", "--with-hooks"]):
         r = runner.invoke(main, args)
         assert r.exit_code != 0
+
+
+def test_init_skip_bundled_does_not_call_seed_default_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    calls: list[Path] = []
+
+    def _track_seed(project_dir: Path) -> int:
+        calls.append(project_dir)
+        return 1
+
+    monkeypatch.setattr("skillet.commands.init._seed_default_sources", _track_seed)
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    runner = CliRunner()
+    r = runner.invoke(
+        main, ["init", "--skip-bundled", "--skip-config", str(project_dir)]
+    )
+    assert r.exit_code == 0, r.output
+    assert calls == []
+    assert (get_project_config_dir(project_dir) / "config.json").is_file()
+    assert not (project_dir / ".skillet" / "config" / "sources.json").exists()
 
 
 def test_init_mirrors_native_skill_directories(

@@ -1,3 +1,12 @@
+---
+name: find-skills
+description: Helps you discover and install skills from the Agent Skillet ecosystem.
+license: MIT
+metadata:
+  author: skillet
+  version: "1.0"
+---
+
 # Find Skills
 
 This skill helps you discover and install skills from the Agent Skillet ecosystem.
@@ -145,5 +154,5 @@ I searched for skills related to "xyz" but didn't find any matches.
 I can still help you with this task directly! Would you like me to proceed?
 
 If this is something you do often, you could create your own skill.
-See the documentation at docs/AUTHORING.md for guidance.
+See the documentation at https://github.com/508-dev/agent-skillet/blob/main/docs/AUTHORING.md for guidance.
 ```

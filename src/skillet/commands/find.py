@@ -5,7 +5,7 @@ import click
 from skillet.utils import format_installs, search_skills_api
 
 
-def _find_command(term: str, directory: str) -> None:
+def _find_command(term: str) -> None:
     """Find skills on skills.sh by name or description."""
     if not term or len(term) < 2:
         click.echo("Please provide at least 2 characters to search.")

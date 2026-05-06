@@ -62,9 +62,7 @@ def _init_command(directory: str, skip_config: bool, skip_bundled: bool) -> None
     if not skip_config:
         ensure_project_agents(project_dir)
         proj_cfg = load_project_config(project_dir)
-    save_project_config(project_dir, proj_cfg)
-
-    if not skip_config:
+        save_project_config(project_dir, proj_cfg)
         written = _emit_native_mirrors(project_dir)
         _print_mirror_lines(written)
 
