@@ -89,30 +89,28 @@ Each entry maps a skill name to its source. The `kind` field is either `"local"`
 
 `skillet add` writes these entries for you — you rarely need to edit the file directly.
 
-## Common Commands
+## Common Commands Examples
 
 ```bash
-# Install bundled skills and set up agent mirrors
-skillet init
-
 # Add a local skill directory (must contain SKILL.md)
 skillet add ./team-skills/checkout-flow
-
-# Add a single skill from a GitHub repo (owner/repo/subpath)
-skillet add anthropics/skills/skill-creator
 
 # Add all skills from a GitHub repo (owner/repo)
 skillet add wshobson/agents
 
+# Add a single skill from a GitHub repo (owner/repo/subpath)
+skillet add anthropics/skills/skill-creator
+
 # Pin to a specific branch or tag (owner/repo/subpath@ref)
 skillet add wshobson/agents/python-design-patterns@main
 
-# Re-sync all sources after editing sources.json
+# Re-sync all sources after editing .skillet/config/sources.json
 skillet sync
 
-# Find skills on skills.sh API
+# Find skills on skills.sh
 skillet find <query>
-# Search local skills (legacy)
+
+# Search local skills
 skillet search <query>
 
 # List installed skills
