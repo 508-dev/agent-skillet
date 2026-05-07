@@ -1,11 +1,11 @@
 {
-  "git-os": {
-    "kind": "local",
-    "source": "git-os"
-  },
   "deploy-checklist": {
     "kind": "local",
     "source": "deploy-checklist"
+  },
+  "git-os": {
+    "kind": "local",
+    "source": "git-os"
   },
   "pytest-coverage": {
     "kind": "github",

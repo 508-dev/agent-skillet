@@ -172,7 +172,9 @@ def test_write_config_files_removes_legacy_skillet_paths(tmp_path: Path) -> None
     gh.mkdir(parents=True)
     (gh / "copilot-instructions.md").write_text("old", encoding="utf-8")
 
-    write_config_files(skills_dir, tmp_path, {"claude": True, "cursor": False, "opencode": False})
+    write_config_files(
+        skills_dir, tmp_path, {"claude": True, "cursor": False, "opencode": False}
+    )
 
     assert not (rules / "skillet.mdc").exists()
     assert not gh.exists()

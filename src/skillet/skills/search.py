@@ -8,15 +8,21 @@ def search_skills(skills: list[dict], query: str, threshold: int = 60) -> list[d
 
     for skill in skills:
         name_score = fuzz.partial_ratio(q, skill["name"].lower())
-        desc_score = fuzz.partial_ratio(q, skill["description"].lower()) if skill["description"] else 0
+        desc_score = (
+            fuzz.partial_ratio(q, skill["description"].lower())
+            if skill["description"]
+            else 0
+        )
 
         best_score = max(name_score, desc_score)
 
         if best_score >= threshold:
-            results.append({
-                **skill,
-                "score": best_score,
-            })
+            results.append(
+                {
+                    **skill,
+                    "score": best_score,
+                }
+            )
 
     return sorted(results, key=lambda s: s["score"], reverse=True)
 

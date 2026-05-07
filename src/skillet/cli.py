@@ -1,171 +1,50 @@
-import os
-import shutil
-from pathlib import Path
+"""Skillet CLI - thin entry points to command implementations."""
+
+import sys
 
 import click
+from pathlib import Path
 
 from skillet import __version__
-from skillet.config.project import (
-    PROJECT_CONFIG_VERSION,
-    agent_emit_flags_for_project,
-    ensure_project_agents,
-    get_project_config_dir,
-    load_project_config,
-    save_project_config,
-)
-from skillet.config.settings import load_config
 from skillet.config.wizard import run_config_wizard
 from skillet.installer.copier import remove_skill
-from skillet.installer.emitters import write_config_files
-from skillet.installer.lock import is_managed, load_lock, record_skill, unrecord_skill
-from skillet.skills.parser import parse_skill_file
-from skillet.skills.parser import get_skills_from_directory
-from skillet.skills.search import search_skills
+from skillet.installer.lock import is_managed, unrecord_skill
 from skillet.operations.add_sources import add_sources, apply_sources_and_emit
+from skillet.skills.parser import get_skills_from_directory
 from skillet.sources import (
-    MaterializeSummary,
     apply_all_sources,
     load_sources,
     remove_source_entry,
     sources_json_path,
-    upsert_source,
 )
+from skillet.utils import (
+    _emit_native_mirrors,
+    _ensure_project_skills_dir,
+    _github_token,
+    _materialize_summary_lines,
+    _print_mirror_lines,
+    _print_sync_errors,
+    _print_tracked_sources_count,
+    _record_applied_skills,
+    _sync_footer,
+    get_project_skills_dir,
+)
+from skillet.commands import _find_command, _search_command, _init_command
+
+# Block-letter banner (UTF-8); shown before each subcommand unless --help / -h.
+_SKILLET_BANNER = """\
+
+███████╗██╗  ██╗██╗██╗     ██╗     ███████╗████████╗
+██╔════╝██║ ██╔╝██║██║     ██║     ██╔════╝   ██╔══╝
+███████╗█████╔╝ ██║██║     ██║     ███████╝   ██║
+╚════██║██╔═██╗ ██║██║     ██║     ██╔════╝   ██║
+███████║██║  ██╗██║███████╗███████╗███████╝   ██║
+╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝
+"""
 
 
-def get_skills_dir(project_dir: Path | None = None) -> Path:
-    """Return local repository ``skills/`` directory for this project."""
-    repo_root = (project_dir or Path.cwd()).resolve()
-    bundled = repo_root / "skills"
-    if bundled.is_dir():
-        for entry in bundled.iterdir():
-            if entry.is_dir() and (entry / "SKILL.md").is_file():
-                return bundled
-    raise RuntimeError("Cannot find bundled skills at repository root: skills/")
-
-
-def _seed_default_sources(project_dir: Path) -> int:
-    """Initialize `.skillet/config/sources.json` with bundled local skills when absent."""
-    if load_sources(project_dir):
-        return 0
-    try:
-        bundled = get_skills_dir(project_dir)
-    except RuntimeError:
-        return 0
-    seeded = 0
-    for entry in bundled.iterdir():
-        if not entry.is_dir() or not (entry / "SKILL.md").is_file():
-            continue
-        meta = parse_skill_file(entry / "SKILL.md") or {}
-        name = str(meta.get("name") or entry.name).strip()
-        if not name:
-            continue
-        upsert_source(project_dir, name, {"kind": "local", "source": entry.name})
-        seeded += 1
-    return seeded
-
-
-def get_project_skills_dir(project_dir: Path) -> Path:
-    return project_dir / ".skillet" / "skills"
-
-
-def _emit_native_mirrors(project_dir: Path) -> dict[str, str]:
-    """Mirror ``.skillet/skills`` into enabled native agent skill directories."""
-    agent_flags = agent_emit_flags_for_project(project_dir)
-    project_skills = get_project_skills_dir(project_dir)
-    return write_config_files(project_skills, project_dir, agent_flags)
-
-
-def _github_token() -> str | None:
-    t = (os.environ.get("GITHUB_TOKEN") or "").strip()
-    if t:
-        return t
-    return (load_config().get("github_token") or "").strip() or None
-
-
-def _print_sync_errors(errors: list[str]) -> None:
-    for msg in errors:
-        click.secho(f"  ! {msg}", fg="red", err=True)
-
-
-def _sync_footer(errors: list[str]) -> str:
-    count = len(errors)
-    if count == 0:
-        return "✓ Sync complete!"
-    noun = "error" if count == 1 else "errors"
-    return f"✓ Sync complete! ({count} {noun} during sync)"
-
-
-def _ensure_project_skills_dir(project_dir: Path) -> Path:
-    """Create and return managed project skills directory."""
-    project_skills = get_project_skills_dir(project_dir)
-    project_skills.mkdir(parents=True, exist_ok=True)
-    return project_skills
-
-
-def _print_mirror_lines(written: dict[str, str], *, suffix: str = "mirrored") -> None:
-    """Print mirrored target paths in a consistent CLI format."""
-    tail = f" {suffix}" if suffix else ""
-    for name, _path in written.items():
-        click.echo(f"  ✓ {name}{tail}")
-
-
-def _print_tracked_sources_count(tracked: int) -> None:
-    if tracked == 1:
-        click.echo("✓ Tracked 1 skill in .skillet/config/sources.json")
-        return
-    click.echo(f"✓ Tracked {tracked} skill(s) in .skillet/config/sources.json")
-
-
-def _origin_from_source_entry(entry: dict) -> str:
-    kind = str(entry.get("kind", "")).strip()
-    if kind == "github":
-        return f"github:{str(entry.get('source', '')).strip()}"
-    if kind == "local":
-        path = str(entry.get("path", "")).strip()
-        if path:
-            return f"local:{path}"
-        source = str(entry.get("source", "")).strip()
-        if source:
-            return f"local:skills/{source}"
-        return "local"
-    if kind == "http_zip":
-        return f"http_zip:{str(entry.get('url', '')).strip()}"
-    return kind or "unknown"
-
-
-def _record_applied_skills(project_dir: Path, summary: MaterializeSummary) -> None:
-    lock = load_lock(project_dir)
-    sources = load_sources(project_dir)
-    for name in (set(summary.added) | set(summary.unchanged)):
-        source_entry = sources.get(name)
-        if not isinstance(source_entry, dict):
-            continue
-        mirrors: list[str] = []
-        skills = lock.get("skills")
-        if not isinstance(skills, dict):
-            skills = {}
-        lock_entry = skills.get(name, {})
-        if isinstance(lock_entry, dict) and isinstance(lock_entry.get("mirrors"), list):
-            mirrors = [m for m in lock_entry["mirrors"] if isinstance(m, str) and m.strip()]
-        record_skill(project_dir, name, origin=_origin_from_source_entry(source_entry), mirrors=mirrors)
-
-
-def _materialize_summary_lines(
-    summary: MaterializeSummary, *, had_apply_errors: bool
-) -> list[str]:
-    """Human-readable lines for what changed under ``.skillet/skills/``."""
-    if had_apply_errors and not (summary.added or summary.removed or summary.unchanged):
-        return ["Skills — none successfully materialized (see errors above)."]
-    if not (summary.added or summary.removed or summary.unchanged):
-        return ["Skills — no changes (sources.json has no skill entries)."]
-    parts: list[str] = []
-    if summary.added:
-        parts.append(f"added: {', '.join(summary.added)}")
-    if summary.removed:
-        parts.append(f"removed: {', '.join(summary.removed)}")
-    if summary.unchanged:
-        parts.append(f"unchanged: {', '.join(summary.unchanged)}")
-    return [f"Skills — {' · '.join(parts)}"]
+def _argv_requests_help() -> bool:
+    return any(a in ("-h", "--help") for a in sys.argv[1:])
 
 
 @click.group(invoke_without_command=True)
@@ -173,6 +52,8 @@ def _materialize_summary_lines(
 @click.pass_context
 def main(ctx: click.Context) -> None:
     """Skillet — initialize and sync agent skills into your repo"""
+    if ctx.invoked_subcommand is not None and not _argv_requests_help():
+        click.echo(_SKILLET_BANNER)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -184,46 +65,14 @@ def main(ctx: click.Context) -> None:
     is_flag=True,
     help="Skip agent target prompt and native skill directory mirroring",
 )
-def init_cmd(directory: str, skip_config: bool) -> None:
+@click.option(
+    "--skip-bundled",
+    is_flag=True,
+    help="Skip installing bundled skills (default: install bundled skills)",
+)
+def init_cmd(directory: str, skip_config: bool, skip_bundled: bool) -> None:
     """Initialize Skillet in a directory, sync sources, mirror native skill dirs."""
-    project_dir = Path(directory).resolve()
-    project_skills = get_project_skills_dir(project_dir)
-
-    click.echo(f"\nInitializing Skillet in: {project_dir}")
-
-    get_project_config_dir(project_dir).mkdir(parents=True, exist_ok=True)
-    proj_cfg = load_project_config(project_dir)
-    proj_cfg.setdefault("version", PROJECT_CONFIG_VERSION)
-    save_project_config(project_dir, proj_cfg)
-
-    seeded = _seed_default_sources(project_dir)
-    if seeded:
-        click.echo(f"  ✓ Bootstrapped {seeded} source(s) in .skillet/config/sources.json")
-
-    if project_skills.exists():
-        shutil.rmtree(project_skills)
-    project_skills = _ensure_project_skills_dir(project_dir)
-    token = _github_token()
-    install_errors, install_summary = apply_all_sources(
-        project_dir, project_skills, github_token=token
-    )
-    _record_applied_skills(project_dir, install_summary)
-    _print_sync_errors(install_errors)
-    for line in _materialize_summary_lines(
-        install_summary, had_apply_errors=bool(install_errors)
-    ):
-        click.echo(line)
-
-    if not skip_config:
-        ensure_project_agents(project_dir)
-        proj_cfg = load_project_config(project_dir)
-    save_project_config(project_dir, proj_cfg)
-
-    if not skip_config:
-        written = _emit_native_mirrors(project_dir)
-        _print_mirror_lines(written)
-
-    click.echo("\n✓ Init complete!")
+    _init_command(directory, skip_config, skip_bundled)
 
 
 @main.command("add")
@@ -369,30 +218,19 @@ def list_cmd(directory: str) -> None:
     click.echo(f"\n{len(skills)} skill(s)")
 
 
+@main.command("find")
+@click.argument("term")
+def find_cmd(term: str) -> None:
+    """Find skills on skills.sh by name or description."""
+    _find_command(term)
+
+
 @main.command("search")
 @click.argument("term")
 @click.argument("directory", default=".")
 def search_cmd(term: str, directory: str) -> None:
-    """Search all skills by name or description."""
-    project_dir = Path(directory).resolve()
-    project_skills = get_project_skills_dir(project_dir)
-
-    if not project_skills.exists():
-        click.echo("No skills installed. Run 'skillet init' first.")
-        return
-
-    skills = get_skills_from_directory(project_skills)
-    results = search_skills(skills, term)
-
-    if not results:
-        click.echo(f"No skills found matching '{term}'")
-        return
-
-    click.echo(f"\nSearch results for '{term}':\n")
-    for skill in results:
-        click.echo(f"  {skill['name']} (score: {skill['score']})")
-        if skill["description"]:
-            click.echo(f"    {skill['description']}")
+    """Search local skills by name or description."""
+    _search_command(term, directory)
 
 
 @main.command("config")

@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .coverage
 cov_annotate/
+.ruff_cache/
 
 # Python packaging/build artifacts
 *.egg-info/

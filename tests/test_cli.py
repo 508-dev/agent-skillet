@@ -7,7 +7,11 @@ from click.testing import CliRunner
 
 from skillet.cli import _materialize_summary_lines, _sync_footer, main
 from skillet.sources import MaterializeSummary
-from skillet.config.project import PROJECT_CONFIG_VERSION, save_project_config
+from skillet.config.project import (
+    PROJECT_CONFIG_VERSION,
+    get_project_config_dir,
+    save_project_config,
+)
 from skillet.sources.store import load_sources, save_sources
 
 
@@ -48,7 +52,9 @@ def test_init_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> N
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
     sources = load_sources(tmp_path)
-    assert sources["git-os"] == {"kind": "local", "source": "git-os"}
+    assert sources["git-os"]["kind"] == "local"
+    assert sources["git-os"]["source"] == "git-os"
+    assert "path" not in sources["git-os"]
 
 
 def test_init_uses_sources_json_as_single_source_of_truth(
@@ -81,13 +87,36 @@ def test_init_removed_flags_raise_usage_error() -> None:
         assert r.exit_code != 0
 
 
+def test_init_skip_bundled_does_not_call_seed_default_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    calls: list[Path] = []
+
+    def _track_seed(project_dir: Path) -> int:
+        calls.append(project_dir)
+        return 1
+
+    monkeypatch.setattr("skillet.commands.init._seed_default_sources", _track_seed)
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    runner = CliRunner()
+    r = runner.invoke(
+        main, ["init", "--skip-bundled", "--skip-config", str(project_dir)]
+    )
+    assert r.exit_code == 0, r.output
+    assert calls == []
+    assert (get_project_config_dir(project_dir) / "config.json").is_file()
+    assert not (project_dir / ".skillet" / "config" / "sources.json").exists()
+
+
 def test_init_mirrors_native_skill_directories(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -108,7 +137,7 @@ def test_sync_restores_native_mirrors_from_sources_json(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -129,7 +158,7 @@ def test_remove_prunes_skill_from_all_native_trees(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -195,7 +224,7 @@ def test_sync_strips_legacy_skillet_files(
     monkeypatch.chdir(tmp_path)
     _write_local_repo_skills(tmp_path)
     monkeypatch.setattr(
-        "skillet.cli.ensure_project_agents",
+        "skillet.commands.init.ensure_project_agents",
         _ensure_all_native_targets,
     )
     runner = CliRunner()
@@ -234,6 +263,34 @@ def test_add_local_skill_mirrors_to_native_directories(
         p = tmp_path / base / "extra-skill" / "SKILL.md"
         assert p.is_file()
         assert "extra-skill" in p.read_text(encoding="utf-8")
+
+
+def test_add_local_skill_readme_team_skills_example(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """README Common Commands: ``skillet add ./team-skills/checkout-flow``."""
+    monkeypatch.chdir(tmp_path)
+    _write_local_repo_skills(tmp_path)
+    runner = CliRunner()
+    assert runner.invoke(main, ["init", "--skip-config", str(tmp_path)]).exit_code == 0
+
+    checkout = tmp_path / "team-skills" / "checkout-flow"
+    checkout.mkdir(parents=True)
+    (checkout / "SKILL.md").write_text(
+        "---\nname: checkout-flow\ndescription: Team checkout skill\n---\n\n# Checkout\n",
+        encoding="utf-8",
+    )
+
+    r = runner.invoke(main, ["add", "./team-skills/checkout-flow", str(tmp_path)])
+    assert r.exit_code == 0, r.output
+
+    skill_md = tmp_path / ".skillet" / "skills" / "checkout-flow" / "SKILL.md"
+    assert skill_md.is_file()
+    assert "checkout-flow" in skill_md.read_text(encoding="utf-8")
+
+    sources = load_sources(tmp_path)
+    assert sources["checkout-flow"]["kind"] == "local"
+    assert "path" in sources["checkout-flow"]
 
 
 def test_sync_footer_includes_error_count() -> None:

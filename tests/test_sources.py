@@ -16,7 +16,9 @@ def test_sources_roundtrip(tmp_path: Path) -> None:
     upsert_source(tmp_path, "a-skill", {"kind": "local", "path": "vendor/a"})
     assert load_sources(tmp_path) == {"a-skill": {"kind": "local", "path": "vendor/a"}}
 
-    upsert_source(tmp_path, "b-skill", {"kind": "http_zip", "url": "https://example.com/z.zip"})
+    upsert_source(
+        tmp_path, "b-skill", {"kind": "http_zip", "url": "https://example.com/z.zip"}
+    )
     loaded = load_sources(tmp_path)
     assert len(loaded) == 2
     assert loaded["b-skill"]["kind"] == "http_zip"
@@ -46,15 +48,15 @@ def test_load_sources_filters_non_objects(tmp_path: Path) -> None:
     p = sources_json_path(tmp_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(
-        json.dumps({"ok": {"kind": "local", "path": "."}, "bad": "skip", "no_kind": {}}),
+        json.dumps(
+            {"ok": {"kind": "local", "path": "."}, "bad": "skip", "no_kind": {}}
+        ),
         encoding="utf-8",
     )
     assert load_sources(tmp_path) == {"ok": {"kind": "local", "path": "."}}
 
 
-def test_apply_github_skill(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_apply_github_skill(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     skill = tmp_path / "fetched" / "gh-skill"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text(
@@ -80,6 +82,54 @@ def test_apply_github_skill(
     assert summary.removed == ()
     assert summary.unchanged == ()
     assert (skills_dest / "gh-skill" / "SKILL.md").is_file()
+
+
+def test_apply_github_skips_fetch_when_materialized_unchanged(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Second apply should not call GitHub when lock + on-disk skill match the source."""
+    skill = tmp_path / "fetched" / "gh-skill"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: gh-skill\ndescription: d\n---\n", encoding="utf-8"
+    )
+    calls: dict[str, int] = {"n": 0}
+
+    def fake_fetch(source, *, token=None, client=None):
+        calls["n"] += 1
+        return [skill], lambda: None
+
+    monkeypatch.setattr(
+        "skillet.sources.apply.fetch_github_skill_directories", fake_fetch
+    )
+
+    skills_dest = tmp_path / ".skillet" / "skills"
+    upsert_source(
+        tmp_path,
+        "gh-skill",
+        {"kind": "github", "source": "demo/repo"},
+    )
+    first_errors, first_summary = apply_all_sources(tmp_path, skills_dest, github_token=None)
+    assert first_errors == []
+    assert first_summary.added == ("gh-skill",)
+    assert calls["n"] == 1
+
+    second_errors, second_summary = apply_all_sources(
+        tmp_path, skills_dest, github_token=None
+    )
+    assert second_errors == []
+    assert second_summary.added == ()
+    assert second_summary.unchanged == ("gh-skill",)
+    assert calls["n"] == 1
+
+    upsert_source(
+        tmp_path,
+        "gh-skill",
+        {"kind": "github", "source": "demo/other@main"},
+    )
+    third_errors, _ = apply_all_sources(tmp_path, skills_dest, github_token=None)
+    assert third_errors == []
+    assert calls["n"] == 2
 
 
 def test_apply_local_skill(tmp_path: Path) -> None:

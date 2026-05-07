@@ -38,7 +38,9 @@ def test_copy_all_skills_skips_when_copy_skill_returns_false(tmp_path: Path) -> 
     assert (dest / "b" / "SKILL.md").read_text(encoding="utf-8") == "user"
 
 
-def test_copy_all_skills_records_with_existing_mirrors_when_present(tmp_path: Path) -> None:
+def test_copy_all_skills_records_with_existing_mirrors_when_present(
+    tmp_path: Path,
+) -> None:
     src = tmp_path / "bundled"
     dest = tmp_path / ".skillet" / "skills"
     _write_skill(src, "one")

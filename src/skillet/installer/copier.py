@@ -35,7 +35,7 @@ def copy_all_skills(
                 record_skill(
                     project_dir,
                     entry.name,
-                    origin="bundled",
+                    origin="local:skillet-package",
                     mirrors=existing_mirrors(project_dir, entry.name),
                 )
             count += 1

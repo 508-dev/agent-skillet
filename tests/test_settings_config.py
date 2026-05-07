@@ -10,7 +10,9 @@ def test_agent_native_paths_cover_all_keys() -> None:
     assert set(settings.AGENT_NATIVE_SKILL_REL_PATH) == set(settings.AGENT_KEYS)
 
 
-def test_format_agent_target_mapping_summary_orders_and_groups_shared_agents_path() -> None:
+def test_format_agent_target_mapping_summary_orders_and_groups_shared_agents_path() -> (
+    None
+):
     from skillet.config.settings import format_agent_target_mapping_summary
 
     text = format_agent_target_mapping_summary(["gemini", "cursor", "claude"])
@@ -19,8 +21,10 @@ def test_format_agent_target_mapping_summary_orders_and_groups_shared_agents_pat
     assert ".agents/skills/" in text
     assert "Gemini CLI" in text
     assert "OpenCode" not in text
-    assert text.find(".claude/skills") < text.find(".cursor/skills") < text.find(
-        ".agents/skills"
+    assert (
+        text.find(".claude/skills")
+        < text.find(".cursor/skills")
+        < text.find(".agents/skills")
     )
     assert "Native skill directories for enabled agents:" in text
 
@@ -37,7 +41,9 @@ def test_format_agent_target_mapping_summary_orders_and_groups_shared_agents_pat
     assert "Codex" in shared
 
 
-def test_save_config_writes_only_lean_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_save_config_writes_only_lean_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from skillet.config import settings
 
     fake = tmp_path / "config.json"
