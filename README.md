@@ -47,7 +47,7 @@ zsh install.sh
 
 ## Configuration
 
-1. To onfigure which agentic coding tool(s) skills show up for (Cursor, Claude Code, and other agents each have their own mirror paths):
+1. To configure which agentic coding tool(s) skills show up for (Cursor, Claude Code, and other agents each have their own mirror paths):
 
    ```bash
    skillet config    # update your agentic coding tool
@@ -64,6 +64,7 @@ zsh install.sh
 - Materializes installed skills into `.skillet/skills/<name>/SKILL.md`.
 - Mirrors enabled skills into agent-native directories (for example `.cursor/skills/` and `.claude/skills/`).
 - Supports local sources and GitHub specs (`owner/repo`, `owner/repo/subpath`, `owner/repo/subpath@ref`).
+- **GitHub installs** download GitHub’s **full repository archive tarball** for the resolved ref, then copy to the skill folder from your path segment
 
 ### Example `sources.json`
 
