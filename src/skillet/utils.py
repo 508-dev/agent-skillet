@@ -149,7 +149,7 @@ def _seed_default_sources(project_dir: Path) -> int:
         upsert_source(
             project_dir,
             name,
-            {"kind": "bundled", "source": entry.name},
+            {"kind": "local", "source": entry.name},
         )
         seeded += 1
     return seeded
@@ -211,8 +211,6 @@ def _origin_from_source_entry(entry: dict) -> str:
     kind = str(entry.get("kind", "")).strip()
     if kind == "github":
         return f"github:{str(entry.get('source', '')).strip()}"
-    if kind == "bundled":
-        return f"bundled:{str(entry.get('source', '')).strip()}"
     if kind == "local":
         path = str(entry.get("path", "")).strip()
         if path:

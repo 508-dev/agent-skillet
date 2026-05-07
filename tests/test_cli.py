@@ -52,7 +52,7 @@ def test_init_writes_project_config_and_skills(tmp_path: Path, monkeypatch) -> N
     skills_dir = tmp_path / ".skillet" / "skills"
     assert (skills_dir / "git-os" / "SKILL.md").is_file()
     sources = load_sources(tmp_path)
-    assert sources["git-os"]["kind"] == "bundled"
+    assert sources["git-os"]["kind"] == "local"
     assert sources["git-os"]["source"] == "git-os"
     assert "path" not in sources["git-os"]
 
@@ -263,6 +263,34 @@ def test_add_local_skill_mirrors_to_native_directories(
         p = tmp_path / base / "extra-skill" / "SKILL.md"
         assert p.is_file()
         assert "extra-skill" in p.read_text(encoding="utf-8")
+
+
+def test_add_local_skill_readme_team_skills_example(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """README Common Commands: ``skillet add ./team-skills/checkout-flow``."""
+    monkeypatch.chdir(tmp_path)
+    _write_local_repo_skills(tmp_path)
+    runner = CliRunner()
+    assert runner.invoke(main, ["init", "--skip-config", str(tmp_path)]).exit_code == 0
+
+    checkout = tmp_path / "team-skills" / "checkout-flow"
+    checkout.mkdir(parents=True)
+    (checkout / "SKILL.md").write_text(
+        "---\nname: checkout-flow\ndescription: Team checkout skill\n---\n\n# Checkout\n",
+        encoding="utf-8",
+    )
+
+    r = runner.invoke(main, ["add", "./team-skills/checkout-flow", str(tmp_path)])
+    assert r.exit_code == 0, r.output
+
+    skill_md = tmp_path / ".skillet" / "skills" / "checkout-flow" / "SKILL.md"
+    assert skill_md.is_file()
+    assert "checkout-flow" in skill_md.read_text(encoding="utf-8")
+
+    sources = load_sources(tmp_path)
+    assert sources["checkout-flow"]["kind"] == "local"
+    assert "path" in sources["checkout-flow"]
 
 
 def test_sync_footer_includes_error_count() -> None:

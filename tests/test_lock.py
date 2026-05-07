@@ -93,7 +93,7 @@ def test_record_and_is_managed_round_trip(tmp_path: Path) -> None:
     record_skill(
         tmp_path,
         "git-os",
-        origin="bundled",
+        origin="local:skillet-package",
         mirrors=[
             ".claude/skills/git-os/SKILL.md",
             "",
@@ -103,7 +103,7 @@ def test_record_and_is_managed_round_trip(tmp_path: Path) -> None:
 
     assert is_managed(tmp_path, "git-os")
     payload = load_lock(tmp_path)
-    assert payload["skills"]["git-os"]["origin"] == "bundled"
+    assert payload["skills"]["git-os"]["origin"] == "local:skillet-package"
     assert payload["skills"]["git-os"]["mirrors"] == [
         ".claude/skills/git-os/SKILL.md",
         ".cursor/skills/git-os/SKILL.md",
@@ -122,7 +122,7 @@ def test_unrecord_skill_removes_mirrors_and_lock_entry(tmp_path: Path) -> None:
     record_skill(
         tmp_path,
         "git-os",
-        origin="bundled",
+        origin="local:skillet-package",
         mirrors=[
             file_mirror.relative_to(tmp_path).as_posix(),
             dir_mirror.relative_to(tmp_path).as_posix(),

@@ -29,7 +29,7 @@ description: When editing payment code, follow these invariants.
 
 ## Where skills live
 
-- **Bundled skills** live in `src/skillet/bundled_skills/` and are copied to `.skillet/skills/` on `skillet init`. The `path` field in `sources.json` points to the absolute path of the bundled skill.
+- **Bundled skills (this repo)** are authored under the repository root `skills/` (one folder per skill with `SKILL.md`). Maintenance edits belong there: **`src/skillet/bundled_skills/` is not the authoring tree**—release CI copies `skills/*` into `src/skillet/bundled_skills/` before building the wheel (see `.github/workflows/build_and_publish.yml`). On `skillet init`, Skillet seeds sources from those bundled definitions and materializes them under `.skillet/skills/<name>/`.
 - **Repo-owned** skills live anywhere in your tree (e.g. `./team-skills/checkout-flow/`). Register them with:
 
   ```bash
@@ -42,11 +42,11 @@ description: When editing payment code, follow these invariants.
 
 `skillet init` and `skillet sync` read `.skillet/config/sources.json` as the single source of truth.
 
-- `kind: "local"` with `"source": "<name>"` and `"path": "<absolute-dir>"` resolves to that absolute path
-- `kind: "local"` with `"source": "<name>"` (no path) resolves to `./skills/<name>/` (legacy behavior)
-- `kind: "github"` with `"source": "<owner/repo/subpath[@ref]>"` — same format as `skillet add`
+- `kind: "local"` with `"path": "<path-relative-to-project>"` — resolves under your project tree.
+- `kind: "local"` with `"source": "<name>"` and no `path` — tries `./skills/<name>/` first, then the skills that ship with the Skillet install (same layout as default `skillet init` seeds). You do not need a special “bundled” type; it is ordinary local resolution.
+- `kind: "github"` with `"source": "<owner/repo/subpath[@ref]>"` — same format as `skillet add`.
 
-Example: install only local `git-os` (exclude other repo skills):
+Example after `skillet init` (default skills from the package / repo `skills/` mirror):
 
 ```json
 {
