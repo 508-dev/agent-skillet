@@ -51,8 +51,12 @@ zsh install.sh
 
    ```bash
    skillet config    # update your agentic coding tool
-   skillet sync      # sync skills to your new destination
+   skillet sync      # re-apply tracked sources and refresh native mirrors
    ```
+
+`skillet sync` is a local reconciliation command. It reads `.skillet/config/sources.json`,
+materializes/removes skills under `.skillet/skills/`, and updates native mirror directories.
+It is not a "check for latest remote updates" command.
 
 ## Browse skills
 
@@ -65,6 +69,7 @@ zsh install.sh
 - Mirrors enabled skills into agent-native directories (for example `.cursor/skills/` and `.claude/skills/`).
 - Supports local sources and GitHub specs (`owner/repo`, `owner/repo/subpath`, `owner/repo/subpath@ref`).
 - **GitHub installs** download GitHub’s **full repository archive tarball** for the resolved ref, then copy to the skill folder from your path segment
+- `skillet sync` reconciles to tracked source specs and local managed state; it should not be assumed to always pull newer upstream content when a remote ref moves.
 
 ### Example `sources.json`
 
@@ -104,7 +109,7 @@ skillet add anthropics/skills/skill-creator
 # Pin to a specific branch or tag (owner/repo/subpath@ref)
 skillet add wshobson/agents/python-design-patterns@main
 
-# Re-sync all sources after editing .skillet/config/sources.json
+# Reconcile tracked sources after editing .skillet/config/sources.json
 skillet sync
 
 # Find skills on skills.sh
@@ -136,6 +141,7 @@ skillet remove skill-creator
 - [Authoring skills](docs/AUTHORING.md)
 - [Development guide](docs/DEVELOPMENT.md)
 - [Releasing](docs/RELEASE.md)
+- [TODO](TODO.md)
 
 ## Contributing
 

@@ -161,7 +161,7 @@ def remove(name: str, directory: str) -> None:
 @main.command("sync")
 @click.argument("directory", default=".")
 def sync(directory: str) -> None:
-    """Read sources from `.skillet/config/sources.json` and sync."""
+    """Reconcile local skills/mirrors from `.skillet/config/sources.json`."""
     project_dir = Path(directory).resolve()
     project_skills = get_project_skills_dir(project_dir)
     has_sources = sources_json_path(project_dir).exists() and load_sources(project_dir)

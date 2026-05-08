@@ -13,7 +13,7 @@
   },
   "python-design-patterns": {
     "kind": "github",
-    "source": "wshobson/agents/python-design-patterns@main"
+    "source": "wshobson/agents/python-design-patterns"
   },
   "skill-creator": {
     "kind": "github",
