@@ -12,9 +12,13 @@ from typing import Any
 import httpx
 
 from skillet.installer.copier import copy_skill
-from skillet.installer.lock import existing_mirrors, is_managed, record_skill
+from skillet.installer.lock import existing_mirrors, is_managed, load_lock, record_skill
 from skillet.skills.parser import parse_skill_file
-from skillet.sources.github import fetch_github_skill_directories, parse_github_source_spec
+from skillet.sources.github import (
+    fetch_github_skill_directories,
+    parse_github_source_spec,
+    serialize_github_source_spec,
+)
 from skillet.sources.store import load_sources
 
 
@@ -25,6 +29,25 @@ class MaterializeSummary:
     added: tuple[str, ...]
     removed: tuple[str, ...]
     unchanged: tuple[str, ...]
+
+
+def _canonical_github_source_string(source_str: str) -> str:
+    """Normalized ``owner/repo/path[@ref]`` for comparing sources and lock origins."""
+    spec = parse_github_source_spec(source_str)
+    return serialize_github_source_spec(spec)
+
+
+def _lock_github_matches_source(lock_origin: str, source_str: str) -> bool:
+    """True when lock ``origin`` refers to the same GitHub source as ``sources.json``."""
+    if not lock_origin.startswith("github:"):
+        return False
+    tail = lock_origin.removeprefix("github:").strip()
+    try:
+        return _canonical_github_source_string(source_str) == _canonical_github_source_string(
+            tail
+        )
+    except ValueError:
+        return False
 
 
 def _pick_github_skill_dir(dirs: list[Path], skill_name: str) -> Path | None:
@@ -52,7 +75,9 @@ def _download_http_zip(url: str, dest_dir: Path) -> None:
             for member in zf.infolist():
                 member_path = (dest_dir_resolved / member.filename).resolve()
                 if not member_path.is_relative_to(dest_dir_resolved):
-                    raise RuntimeError(f"Zip slip vulnerability detected: {member.filename}")
+                    raise RuntimeError(
+                        f"Zip slip vulnerability detected: {member.filename}"
+                    )
                 zf.extract(member, dest_dir)
     except Exception as e:
         raise RuntimeError(f"Failed to download zip: {e}") from e
@@ -72,12 +97,27 @@ def _apply_local_source(
     if not rel:
         return "local source missing path or source"
     src = (project_dir / rel).resolve()
+    if not src.exists() and local_source:
+        try:
+            from skillet.utils import get_skills_dir
+
+            root = get_skills_dir(project_dir)
+            alt = (root / local_source).resolve()
+            if alt.is_dir() and (alt / "SKILL.md").is_file():
+                src = alt
+        except RuntimeError:
+            pass
     if not src.exists():
         return f"local path does not exist: {rel}"
     if not src.is_dir() or not (src / "SKILL.md").exists():
         return f"not a skill directory (missing SKILL.md): {rel}"
     copy_skill(src, skills_dest / skill_name)
-    record_skill(project_dir, skill_name, origin=f"local:{rel}", mirrors=mirrors)
+    origin_rel = (
+        src.relative_to(project_dir).as_posix()
+        if src.is_relative_to(project_dir)
+        else str(src)
+    )
+    record_skill(project_dir, skill_name, origin=f"local:{origin_rel}", mirrors=mirrors)
     return None
 
 
@@ -114,6 +154,26 @@ def _apply_github_source(
     source_str = str(entry.get("source", "")).strip()
     if not source_str:
         return "github source missing"
+
+    dest = skills_dest / skill_name
+    lock_entry = load_lock(project_dir).get("skills", {}).get(skill_name)
+    origin_locked = ""
+    if isinstance(lock_entry, dict):
+        origin_locked = str(lock_entry.get("origin", "")).strip()
+
+    # Skip network when we already materialized this exact GitHub spec (sync / repeat apply).
+    if (
+        dest.is_dir()
+        and (dest / "SKILL.md").is_file()
+        and is_managed(project_dir, skill_name)
+        and _lock_github_matches_source(origin_locked, source_str)
+    ):
+        canon = _canonical_github_source_string(source_str)
+        record_skill(
+            project_dir, skill_name, origin=f"github:{canon}", mirrors=mirrors
+        )
+        return None
+
     try:
         parsed = parse_github_source_spec(source_str)
         dirs, cleanup = fetch_github_skill_directories(parsed, token=github_token)
@@ -134,7 +194,8 @@ def _apply_github_source(
         return str(e)
     finally:
         cleanup()
-    record_skill(project_dir, skill_name, origin=f"github:{source_str}", mirrors=mirrors)
+    canon = _canonical_github_source_string(source_str)
+    record_skill(project_dir, skill_name, origin=f"github:{canon}", mirrors=mirrors)
     return None
 
 
@@ -156,7 +217,9 @@ def _apply_one(
     if kind == "local":
         return _apply_local_source(project_dir, skills_dest, skill_name, entry, mirrors)
     if kind == "http_zip":
-        return _apply_http_zip_source(project_dir, skills_dest, skill_name, entry, mirrors)
+        return _apply_http_zip_source(
+            project_dir, skills_dest, skill_name, entry, mirrors
+        )
     if kind == "github":
         return _apply_github_source(
             project_dir,

@@ -1,11 +1,11 @@
 {
-  "git-os": {
-    "kind": "local",
-    "source": "git-os"
-  },
   "deploy-checklist": {
     "kind": "local",
     "source": "deploy-checklist"
+  },
+  "git-os": {
+    "kind": "local",
+    "source": "git-os"
   },
   "pytest-coverage": {
     "kind": "github",
@@ -13,7 +13,7 @@
   },
   "python-design-patterns": {
     "kind": "github",
-    "source": "wshobson/agents/python-design-patterns@main"
+    "source": "wshobson/agents/python-design-patterns"
   },
   "skill-creator": {
     "kind": "github",

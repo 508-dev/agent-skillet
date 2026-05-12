@@ -119,7 +119,9 @@ def add_sources(
         if parsed is not None:
             name, source_entry = parsed
             if _unmanaged_collision(name):
-                errors.append(f"{name}: skill already exists (not managed by Skillet), skipping")
+                errors.append(
+                    f"{name}: skill already exists (not managed by Skillet), skipping"
+                )
                 continue
             if skip_existing and name in existing:
                 continue
@@ -151,7 +153,9 @@ def add_sources(
 
         for name, source_entry in _github_skill_sources(dirs=dirs, base=base):
             if _unmanaged_collision(name):
-                errors.append(f"{name}: skill already exists (not managed by Skillet), skipping")
+                errors.append(
+                    f"{name}: skill already exists (not managed by Skillet), skipping"
+                )
                 continue
             if skip_existing and name in existing:
                 continue
@@ -175,7 +179,13 @@ def apply_sources_and_emit(
     project_dir = project_dir.resolve()
     project_skills = project_dir / ".skillet" / "skills"
     project_skills.mkdir(parents=True, exist_ok=True)
-    errors, summary = apply_all_sources(project_dir, project_skills, github_token=github_token)
-    flags = agent_flags if agent_flags is not None else agent_emit_flags_for_project(project_dir)
+    errors, summary = apply_all_sources(
+        project_dir, project_skills, github_token=github_token
+    )
+    flags = (
+        agent_flags
+        if agent_flags is not None
+        else agent_emit_flags_for_project(project_dir)
+    )
     written = write_config_files(project_skills, project_dir, flags)
     return errors, written, summary

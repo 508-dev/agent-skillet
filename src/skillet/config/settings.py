@@ -73,9 +73,7 @@ def format_agent_target_mapping_summary(selected_keys: list[str]) -> str:
             path_order.append(rel)
             path_to_names[rel] = []
         path_to_names[rel].append(AGENT_LABELS[key])
-    lines = [
-        f"  • {', '.join(path_to_names[p])}: {p}/" for p in path_order
-    ]
+    lines = [f"  • {', '.join(path_to_names[p])}: {p}/" for p in path_order]
     if not lines:
         return ""
     return "Native skill directories for enabled agents:\n" + "\n".join(lines)
@@ -104,9 +102,7 @@ def agent_checkbox_instruction() -> str:
 
 
 def agent_multiselect_usage_line() -> str:
-    return (
-        "Nothing is pre-selected — press Space on each agent you use, then Enter."
-    )
+    return "Nothing is pre-selected — press Space on each agent you use, then Enter."
 
 
 def agent_multiselect_prompt_global() -> str:
@@ -115,8 +111,7 @@ def agent_multiselect_prompt_global() -> str:
 
 def agent_multiselect_prompt_project() -> str:
     return (
-        "Which agents should this project target?\n"
-        f"  {agent_multiselect_usage_line()}"
+        f"Which agents should this project target?\n  {agent_multiselect_usage_line()}"
     )
 
 
@@ -124,9 +119,7 @@ def agent_reference_hint_line(keys: list[str]) -> str | None:
     labels = [AGENT_LABELS[k] for k in keys if k in AGENT_LABELS]
     if not labels:
         return None
-    return (
-        f"  (For reference: {', '.join(labels)} — use Space to select what applies.)"
-    )
+    return f"  (For reference: {', '.join(labels)} — use Space to select what applies.)"
 
 
 def get_config_path() -> Path:
